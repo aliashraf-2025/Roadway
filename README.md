@@ -12,9 +12,27 @@ View your app in AI Studio: https://ai.studio/apps/drive/1hr5Zbfe-xeosFRJfjlMRdR
 
 **Prerequisites:**  Node.js
 
+### Frontend Development
 
 1. Install dependencies:
    `npm install`
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+### Backend API Server
+
+1. Install dependencies:
+   `npm install`
+2. Place your `firebase-service-account.json` file in the project root
+3. Run the server:
+   `npm run server`
+   
+   Or with auto-reload:
+   `npm run server:dev`
+   
+The API server will run on `http://localhost:3001`
+
+## Deployment
+
+For production deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)

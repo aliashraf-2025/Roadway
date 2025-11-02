@@ -108,6 +108,22 @@ If you have a separate frontend deployment, update the API URL:
   - Firebase permissions issue
   - Port binding errors (should be automatic)
 
+### "Cannot find module '/opt/render/project/src/index.js'"
+
+If you see this error, it means Render is using the wrong start command:
+
+1. **Go to Render Dashboard** → Your Service → **Settings**
+2. **Scroll to "Start Command"**
+3. **Verify it says:** `npm start` or `node server.js`
+4. **If it says:** `node index.js`, that's fine too (we created an index.js wrapper)
+5. **Important:** Make sure NO custom start command is overriding `npm start`
+6. **Click "Save Changes"** and redeploy
+
+If this doesn't work:
+- Double-check that you've committed and pushed `index.js`, `server.js`, and `package.json` to your GitHub repo
+- Ensure Render is pulling from the correct branch
+- Try manually setting the start command to: `node server.js`
+
 ### Service Goes to Sleep
 
 On the free tier, services spin down after 15 minutes of inactivity. They automatically wake up on the next request, but the first request after sleep takes ~30 seconds.
