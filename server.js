@@ -12,22 +12,39 @@ app.use(cors());
 app.use(express.json());
 
 // Initialize Firebase Admin SDK
-// Check if service account file exists
-const serviceAccountPath = path.join(__dirname, 'firebase-service-account.json');
+let serviceAccount;
 
-if (!fs.existsSync(serviceAccountPath)) {
-  console.error('\n❌ ERROR: Firebase service account file not found!');
-  console.error('\n📋 To fix this:');
-  console.error('   1. Go to: https://console.firebase.google.com/');
-  console.error('   2. Select your project: a2z-app-3ea59');
-  console.error('   3. Go to Project Settings → Service Accounts');
-  console.error('   4. Click "Generate New Private Key"');
-  console.error('   5. Save the JSON file as: firebase-service-account.json');
-  console.error('   6. Place it in the project root directory\n');
-  process.exit(1);
+// Try to load from environment variable (for production)
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  try {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    console.log('✅ Loaded Firebase credentials from environment variable');
+  } catch (error) {
+    console.error('❌ Error parsing FIREBASE_SERVICE_ACCOUNT env var:', error.message);
+    process.exit(1);
+  }
+} else {
+  // Try to load from file (for local development)
+  const serviceAccountPath = path.join(__dirname, 'firebase-service-account.json');
+  
+  if (!fs.existsSync(serviceAccountPath)) {
+    console.error('\n❌ ERROR: Firebase service account not found!');
+    console.error('\n📋 To fix this, do ONE of the following:');
+    console.error('\nOption 1 (Environment Variable - Recommended for production):');
+    console.error('   Set FIREBASE_SERVICE_ACCOUNT environment variable with the JSON content');
+    console.error('\nOption 2 (Local file - For development):');
+    console.error('   1. Go to: https://console.firebase.google.com/');
+    console.error('   2. Select your project: a2z-app-3ea59');
+    console.error('   3. Go to Project Settings → Service Accounts');
+    console.error('   4. Click "Generate New Private Key"');
+    console.error('   5. Save the JSON file as: firebase-service-account.json');
+    console.error('   6. Place it in the project root directory\n');
+    process.exit(1);
+  }
+  
+  serviceAccount = require(serviceAccountPath);
+  console.log('✅ Loaded Firebase credentials from file');
 }
-
-const serviceAccount = require(serviceAccountPath);
 
 try {
   admin.initializeApp({
