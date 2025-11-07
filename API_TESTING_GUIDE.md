@@ -22,7 +22,7 @@ This guide will help you set up and test Firebase endpoints using Postman.
 2. **Place your Firebase service account key:**
    - Save the downloaded JSON file as `firebase-service-account.json` in the project root
 
-3. **Start the API server:**
+3. **Start the API server (for local testing):**
    ```bash
    npm run server
    ```
@@ -33,16 +33,29 @@ This guide will help you set up and test Firebase endpoints using Postman.
 
    The server will run on `http://localhost:3001`
 
+   **Note:** The API is also deployed on Render at `https://roadway-l7up.onrender.com`
+
 ## API Endpoints
 
+### Production API Base URL
+- **Base URL:** `https://roadway-l7up.onrender.com`
+- All endpoints below work with this base URL
+
+### Local Development API Base URL
+- **Base URL:** `http://localhost:3001` (when running `npm run server` locally)
+
 ### Health Check
-- **GET** `http://localhost:3001/health`
+- **GET** `https://roadway-l7up.onrender.com/health` (production)
+- **GET** `http://localhost:3001/health` (local)
 - Returns server status
 
 ### Authentication Endpoints
 
+**Note:** Replace the base URL with `https://roadway-l7up.onrender.com` for production API calls, or use `http://localhost:3001` for local development.
+
 #### Sign Up
-- **POST** `http://localhost:3001/api/auth/signup`
+- **POST** `https://roadway-l7up.onrender.com/api/auth/signup` (production)
+- **POST** `http://localhost:3001/api/auth/signup` (local)
 - **Body** (JSON):
   ```json
   {
@@ -54,7 +67,8 @@ This guide will help you set up and test Firebase endpoints using Postman.
   ```
 
 #### Login
-- **POST** `http://localhost:3001/api/auth/login`
+- **POST** `https://roadway-l7up.onrender.com/api/auth/login` (production)
+- **POST** `http://localhost:3001/api/auth/login` (local)
 - **Body** (JSON):
   ```json
   {
@@ -73,13 +87,15 @@ This guide will help you set up and test Firebase endpoints using Postman.
 - **Note**: This is a simplified login. For production, use Firebase Auth REST API directly.
 
 #### Get User
-- **GET** `http://localhost:3001/api/auth/user/:uid`
+- **GET** `https://roadway-l7up.onrender.com/api/auth/user/:uid` (production)
+- **GET** `http://localhost:3001/api/auth/user/:uid` (local)
 - Replace `:uid` with the user's Firebase UID
 
 ### Users Endpoints
 
 #### Get All Users
-- **GET** `http://localhost:3001/api/users`
+- **GET** `https://roadway-l7up.onrender.com/api/users` (production)
+- **GET** `http://localhost:3001/api/users` (local)
 
 #### Get User by ID
 - **GET** `http://localhost:3001/api/users/:id`

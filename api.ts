@@ -1,8 +1,9 @@
 // API Service - Centralized backend API calls
 // Base URL for the backend API
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Default to Render deployment URL, can be overridden with VITE_API_URL environment variable
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://roadway-l7up.onrender.com';
 
-// Log API base URL for debugging (remove in production)
+// Log API base URL for debugging
 if (typeof window !== 'undefined') {
   console.log('🔗 API Base URL:', API_BASE_URL);
 }
