@@ -6,44 +6,112 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST || '0.0.0.0'; // Use 0.0.0.0 for Render to bind to all interfaces
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
+// Log environment info
+console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
+console.log('📦 Starting server...');
+
 // Initialize Firebase Admin SDK
 let serviceAccount;
+const isProduction = process.env.NODE_ENV === 'production';
 
-// Try to load from environment variable (for production)
+// Priority 1: Try to load from environment variable (for Render/production)
 if (process.env.FIREBASE_SERVICE_ACCOUNT) {
   try {
-    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    console.log('✅ Loaded Firebase credentials from environment variable');
+    // Handle both string and already-parsed JSON
+    if (typeof process.env.FIREBASE_SERVICE_ACCOUNT === 'string') {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    } else {
+      serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+    }
+    console.log('✅ Loaded Firebase credentials from environment variable (FIREBASE_SERVICE_ACCOUNT)');
   } catch (error) {
     console.error('❌ Error parsing FIREBASE_SERVICE_ACCOUNT env var:', error.message);
+    console.error('💡 Make sure FIREBASE_SERVICE_ACCOUNT is a valid JSON string');
     process.exit(1);
   }
-} else {
-  // Try to load from file (for local development)
-  const serviceAccountPath = path.join(__dirname, 'firebase-service-account.json');
+} 
+// Priority 2: Try individual environment variables (alternative method)
+else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
+  try {
+    // Handle private key with escaped newlines
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
+    serviceAccount = {
+      type: 'service_account',
+      project_id: process.env.FIREBASE_PROJECT_ID,
+      private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || '',
+      private_key: privateKey,
+      client_email: process.env.FIREBASE_CLIENT_EMAIL,
+      client_id: process.env.FIREBASE_CLIENT_ID || '',
+      auth_uri: 'https://accounts.google.com/o/oauth2/auth',
+      token_uri: 'https://oauth2.googleapis.com/token',
+      auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
+      client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL || ''
+    };
+    console.log('✅ Loaded Firebase credentials from individual environment variables');
+  } catch (error) {
+    console.error('❌ Error constructing Firebase credentials from env vars:', error.message);
+    process.exit(1);
+  }
+}
+// Priority 3: Try to load from file (for local development only)
+else {
+  // Only attempt file loading if not in production
+  if (isProduction) {
+    console.error('\n❌ ERROR: Firebase credentials not found in production!');
+    console.error('\n📋 Required: Set FIREBASE_SERVICE_ACCOUNT environment variable in Render dashboard');
+    console.error('\n   Steps:');
+    console.error('   1. Go to Render Dashboard → Your Service → Environment');
+    console.error('   2. Add environment variable:');
+    console.error('      Key: FIREBASE_SERVICE_ACCOUNT');
+    console.error('      Value: (paste entire JSON from firebase-service-account.json as a single line)');
+    console.error('   3. Save and redeploy\n');
+    process.exit(1);
+  }
+
+  // Try multiple possible paths for local development
+  const possiblePaths = [
+    path.join(__dirname, 'firebase-service-account.json'),
+    path.join(process.cwd(), 'firebase-service-account.json'),
+    './firebase-service-account.json',
+    'firebase-service-account.json'
+  ];
   
-  if (!fs.existsSync(serviceAccountPath)) {
-    console.error('\n❌ ERROR: Firebase service account not found!');
-    console.error('\n📋 To fix this, do ONE of the following:');
-    console.error('\nOption 1 (Environment Variable - Recommended for production):');
-    console.error('   Set FIREBASE_SERVICE_ACCOUNT environment variable with the JSON content');
-    console.error('\nOption 2 (Local file - For development):');
+  let serviceAccountPath = null;
+  for (const testPath of possiblePaths) {
+    if (fs.existsSync(testPath)) {
+      serviceAccountPath = testPath;
+      break;
+    }
+  }
+  
+  if (!serviceAccountPath) {
+    console.error('\n❌ ERROR: Firebase service account file not found!');
+    console.error('\n📍 Current directory:', process.cwd());
+    console.error('📍 __dirname:', __dirname);
+    console.error('\n📋 To fix this:');
     console.error('   1. Go to: https://console.firebase.google.com/');
     console.error('   2. Select your project: a2z-app-3ea59');
     console.error('   3. Go to Project Settings → Service Accounts');
     console.error('   4. Click "Generate New Private Key"');
     console.error('   5. Save the JSON file as: firebase-service-account.json');
-    console.error('   6. Place it in the project root directory\n');
+    console.error('   6. Place it in the project root directory (same folder as server.js)\n');
     process.exit(1);
   }
   
-  serviceAccount = require(serviceAccountPath);
-  console.log('✅ Loaded Firebase credentials from file');
+  try {
+    serviceAccount = require(serviceAccountPath);
+    console.log('✅ Loaded Firebase credentials from file:', serviceAccountPath);
+  } catch (error) {
+    console.error('❌ Error loading Firebase service account file:', error.message);
+    console.error('📍 File path:', serviceAccountPath);
+    process.exit(1);
+  }
 }
 
 try {
@@ -774,9 +842,13 @@ app.post('/api/users/:userId/roadmaps/:roadmapKey', async (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Firebase API server running on http://localhost:${PORT}`);
-  console.log(`📝 Health check: http://localhost:${PORT}/health`);
+app.listen(PORT, HOST, () => {
+  console.log(`🚀 Firebase API server running on http://${HOST}:${PORT}`);
+  console.log(`📝 Health check: http://${HOST}:${PORT}/health`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  if (isProduction) {
+    console.log(`✅ Production mode: Using environment variables for configuration`);
+  }
   console.log(`\n📚 Available endpoints:`);
   console.log(`   GET    /api/users`);
   console.log(`   GET    /api/users/:id`);
@@ -794,5 +866,15 @@ app.listen(PORT, () => {
   console.log(`   POST   /api/auth/signup`);
   console.log(`   POST   /api/auth/login`);
   console.log(`   GET    /api/auth/user/:uid`);
+});
+
+// Handle uncaught errors gracefully
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
 

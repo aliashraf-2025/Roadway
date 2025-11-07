@@ -2,6 +2,8 @@
 
 This guide explains how to deploy the A2Z Backend API to Render.
 
+> **📖 For detailed step-by-step instructions, see [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md)**
+
 ## Prerequisites
 
 - A Render account (free tier is sufficient)

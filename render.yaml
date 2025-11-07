@@ -5,7 +5,11 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: npm start
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
+      # IMPORTANT: Add FIREBASE_SERVICE_ACCOUNT in Render dashboard with your Firebase credentials
+      # - key: FIREBASE_SERVICE_ACCOUNT
+      #   sync: false  # This must be set manually in Render dashboard
 
