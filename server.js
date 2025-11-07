@@ -16,6 +16,14 @@ app.use(express.json());
 console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
 console.log('📦 Starting server...');
 
+// Debug: Log environment variable status (without exposing secrets)
+console.log('🔍 Environment Variables Check:');
+console.log('   - NODE_ENV:', process.env.NODE_ENV || 'not set');
+console.log('   - FIREBASE_SERVICE_ACCOUNT:', process.env.FIREBASE_SERVICE_ACCOUNT ? '✅ Set (' + process.env.FIREBASE_SERVICE_ACCOUNT.length + ' chars)' : '❌ Not set');
+console.log('   - FIREBASE_PROJECT_ID:', process.env.FIREBASE_PROJECT_ID ? '✅ Set' : '❌ Not set');
+console.log('   - FIREBASE_CLIENT_EMAIL:', process.env.FIREBASE_CLIENT_EMAIL ? '✅ Set' : '❌ Not set');
+console.log('   - PORT:', process.env.PORT || 'not set (will use default 3001)');
+
 // Initialize Firebase Admin SDK
 let serviceAccount;
 const isProduction = process.env.NODE_ENV === 'production';
@@ -64,13 +72,23 @@ else {
   // Only attempt file loading if not in production
   if (isProduction) {
     console.error('\n❌ ERROR: Firebase credentials not found in production!');
-    console.error('\n📋 Required: Set FIREBASE_SERVICE_ACCOUNT environment variable in Render dashboard');
-    console.error('\n   Steps:');
-    console.error('   1. Go to Render Dashboard → Your Service → Environment');
-    console.error('   2. Add environment variable:');
-    console.error('      Key: FIREBASE_SERVICE_ACCOUNT');
-    console.error('      Value: (paste entire JSON from firebase-service-account.json as a single line)');
-    console.error('   3. Save and redeploy\n');
+    console.error('\n🔍 Debug Info:');
+    console.error('   - NODE_ENV:', process.env.NODE_ENV);
+    console.error('   - FIREBASE_SERVICE_ACCOUNT:', process.env.FIREBASE_SERVICE_ACCOUNT ? 'Exists (' + process.env.FIREBASE_SERVICE_ACCOUNT.length + ' chars)' : 'Missing');
+    console.error('   - FIREBASE_PROJECT_ID:', process.env.FIREBASE_PROJECT_ID || 'Missing');
+    console.error('   - FIREBASE_CLIENT_EMAIL:', process.env.FIREBASE_CLIENT_EMAIL || 'Missing');
+    console.error('\n📋 SOLUTION: Set FIREBASE_SERVICE_ACCOUNT environment variable in Render dashboard');
+    console.error('\n   Step-by-Step Instructions:');
+    console.error('   1. Open your local firebase-service-account.json file');
+    console.error('   2. Run this command locally: npm run prepare-firebase-env');
+    console.error('   3. Copy the output (single-line JSON string)');
+    console.error('   4. Go to Render Dashboard → Your Service → Environment');
+    console.error('   5. Click "Add Environment Variable"');
+    console.error('   6. Key: FIREBASE_SERVICE_ACCOUNT');
+    console.error('   7. Value: (paste the copied JSON string)');
+    console.error('   8. Click "Save Changes"');
+    console.error('   9. Go to "Manual Deploy" → "Deploy latest commit"');
+    console.error('\n   Alternative: Use individual environment variables (see RENDER_DEPLOYMENT.md)\n');
     process.exit(1);
   }
 
