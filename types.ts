@@ -14,6 +14,9 @@ export interface User {
   blockedUserIds: string[];
   joinedCommunities: string[];
   isAdmin?: boolean;
+  isTrusted?: boolean; // AI trust gate - user with 5+ clean posts
+  postViolations?: number; // Count of posts that violated content policy
+  cleanPostCount?: number; // Count of approved posts without violations
 }
 
 export interface Comment {
@@ -40,6 +43,8 @@ export interface Post {
   field: string;
   isCommunityPost: boolean;
   repostOf?: Post;
+  status?: 'pending' | 'approved' | 'rejected'; // Post moderation status
+  moderationReason?: string; // Reason for rejection if rejected
 }
 
 export interface Course {

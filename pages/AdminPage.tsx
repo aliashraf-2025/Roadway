@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Post, Course } from '../types';
 import GlassCard from '../components/GlassCard';
-import { UsersIcon, EditIcon, TrashIcon, MessageSquareIcon, BookIcon } from '../components/icons';
+import { UsersIcon, EditIcon, TrashIcon, MessageSquareIcon, BookIcon, CheckIcon, XIcon, LinkIcon, ShieldIcon } from '../components/icons';
+import { postsAPI } from '../api';
 
-type AdminTab = 'overview' | 'users' | 'posts' | 'communities';
+type AdminTab = 'overview' | 'users' | 'posts' | 'moderation' | 'communities' | 'tools';
 
 const StatCard: React.FC<{ title: string, value: number, icon: React.FC<any> }> = ({ title, value, icon: Icon }) => (
     <GlassCard>
@@ -47,23 +48,95 @@ interface AdminPageProps {
     allUsers: User[];
     allPosts: Post[];
     allCourses: Course[];
+    currentUser: User;
     onUpdateUser: (userId: string, updatedData: Partial<User>) => void;
     onDeleteUser: (userId: string) => void;
     onUpdatePost: (postId: string, updatedData: Partial<Post>) => void;
     onDeletePost: (postId: string) => void;
     onUpdateCommunity: (courseId: string, updatedData: Partial<Course>) => void;
     onDeleteCommunity: (courseId: string) => void;
+    onRefreshPosts: () => void;
 }
 
 const AdminPage: React.FC<AdminPageProps> = ({ 
-    allUsers, allPosts, allCourses, 
-    onDeleteUser, onDeletePost, onDeleteCommunity 
+    allUsers, allPosts, allCourses, currentUser,
+    onDeleteUser, onDeletePost, onDeleteCommunity, onRefreshPosts
 }) => {
     const [activeTab, setActiveTab] = useState<AdminTab>('overview');
     const [itemToDelete, setItemToDelete] = useState<{ type: 'user' | 'post' | 'community', id: string } | null>(null);
+    const [pendingPosts, setPendingPosts] = useState<Post[]>([]);
+    const [loadingPending, setLoadingPending] = useState(false);
+    const [linkToCheck, setLinkToCheck] = useState('');
+    const [linkCheckResult, setLinkCheckResult] = useState<any>(null);
+    const [checkingLink, setCheckingLink] = useState(false);
 
     const handleDeleteClick = (type: 'user' | 'post' | 'community', id: string) => {
         setItemToDelete({ type, id });
+    };
+
+    // Load pending posts when moderation tab is active
+    useEffect(() => {
+        if (activeTab === 'moderation' && currentUser) {
+            loadPendingPosts();
+        }
+    }, [activeTab, currentUser]);
+
+    const loadPendingPosts = async () => {
+        if (!currentUser) return;
+        setLoadingPending(true);
+        try {
+            const posts = await postsAPI.getPendingPosts(currentUser.id);
+            setPendingPosts(posts as Post[]);
+        } catch (error) {
+            console.error('Error loading pending posts:', error);
+            alert('Failed to load pending posts');
+        } finally {
+            setLoadingPending(false);
+        }
+    };
+
+    const handleApprovePost = async (postId: string) => {
+        if (!currentUser) return;
+        try {
+            await postsAPI.approve(postId, currentUser.id);
+            setPendingPosts(prev => prev.filter(p => p.id !== postId));
+            onRefreshPosts();
+            alert('Post approved successfully');
+        } catch (error: any) {
+            console.error('Error approving post:', error);
+            alert(`Failed to approve post: ${error.message}`);
+        }
+    };
+
+    const handleRejectPost = async (postId: string, reason?: string) => {
+        if (!currentUser) return;
+        const rejectionReason = reason || prompt('Enter rejection reason (optional):') || 'Post rejected by admin';
+        if (rejectionReason === null) return; // User cancelled
+        
+        try {
+            await postsAPI.reject(postId, currentUser.id, rejectionReason);
+            setPendingPosts(prev => prev.filter(p => p.id !== postId));
+            onRefreshPosts();
+            alert('Post rejected successfully');
+        } catch (error: any) {
+            console.error('Error rejecting post:', error);
+            alert(`Failed to reject post: ${error.message}`);
+        }
+    };
+
+    const handleCheckLink = async () => {
+        if (!linkToCheck.trim() || !currentUser) return;
+        setCheckingLink(true);
+        setLinkCheckResult(null);
+        try {
+            const result = await postsAPI.checkLink(currentUser.id, linkToCheck);
+            setLinkCheckResult(result);
+        } catch (error: any) {
+            console.error('Error checking link:', error);
+            alert(`Failed to check link: ${error.message}`);
+        } finally {
+            setCheckingLink(false);
+        }
     };
 
     const handleConfirmDelete = () => {
@@ -86,11 +159,21 @@ const AdminPage: React.FC<AdminPageProps> = ({
     const renderContent = () => {
         switch (activeTab) {
             case 'overview':
+                const pendingCount = allPosts.filter(p => p.status === 'pending').length;
+                const approvedCount = allPosts.filter(p => p.status === 'approved').length;
+                const trustedUsers = allUsers.filter(u => u.isTrusted).length;
                 return (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <StatCard title="Total Users" value={allUsers.length} icon={UsersIcon} />
-                        <StatCard title="Total Posts" value={allPosts.length} icon={MessageSquareIcon} />
-                        <StatCard title="Total Communities" value={allCourses.length} icon={BookIcon} />
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <StatCard title="Total Users" value={allUsers.length} icon={UsersIcon} />
+                            <StatCard title="Total Posts" value={allPosts.length} icon={MessageSquareIcon} />
+                            <StatCard title="Total Communities" value={allCourses.length} icon={BookIcon} />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <StatCard title="Pending Posts" value={pendingCount} icon={MessageSquareIcon} />
+                            <StatCard title="Approved Posts" value={approvedCount} icon={CheckIcon} />
+                            <StatCard title="Trusted Users" value={trustedUsers} icon={ShieldIcon} />
+                        </div>
                     </div>
                 );
             case 'users':
@@ -116,6 +199,10 @@ const AdminPage: React.FC<AdminPageProps> = ({
                                             <td className="p-2">{user.email}</td>
                                             <td className="p-2">{user.isAdmin ? 'Yes' : 'No'}</td>
                                             <td className="p-2">
+                                                {user.isTrusted && <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full mr-2">Trusted</span>}
+                                                {user.postViolations && user.postViolations > 0 && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full mr-2">{user.postViolations} violations</span>}
+                                            </td>
+                                            <td className="p-2">
                                                 <button onClick={() => handleDeleteClick('user', user.id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-full"><TrashIcon className="w-4 h-4" /></button>
                                             </td>
                                         </tr>
@@ -136,6 +223,7 @@ const AdminPage: React.FC<AdminPageProps> = ({
                                         <th className="p-2">ID</th>
                                         <th className="p-2">Title / Review</th>
                                         <th className="p-2">Author</th>
+                                        <th className="p-2">Status</th>
                                         <th className="p-2">Likes</th>
                                         <th className="p-2">Actions</th>
                                     </tr>
@@ -146,6 +234,12 @@ const AdminPage: React.FC<AdminPageProps> = ({
                                             <td className="p-2 text-xs">{post.id}</td>
                                             <td className="p-2 max-w-xs truncate">{post.courseName || post.review}</td>
                                             <td className="p-2">{(post.author as User)?.name || 'Unknown'}</td>
+                                            <td className="p-2">
+                                                {post.status === 'pending' && <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full">Pending</span>}
+                                                {post.status === 'approved' && <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">Approved</span>}
+                                                {post.status === 'rejected' && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full">Rejected</span>}
+                                                {!post.status && <span className="text-xs bg-gray-500/20 text-gray-400 px-2 py-1 rounded-full">Legacy</span>}
+                                            </td>
                                             <td className="p-2">{post.likes}</td>
                                             <td className="p-2">
                                                 <button onClick={() => handleDeleteClick('post', post.id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-full"><TrashIcon className="w-4 h-4" /></button>
@@ -156,6 +250,141 @@ const AdminPage: React.FC<AdminPageProps> = ({
                             </table>
                         </div>
                     </GlassCard>
+                );
+            case 'moderation':
+                return (
+                    <GlassCard>
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-bold">Post Moderation</h2>
+                            <button 
+                                onClick={loadPendingPosts} 
+                                disabled={loadingPending}
+                                className="px-4 py-2 bg-[var(--primary-accent)] text-[var(--primary-accent-text)] rounded-full hover:bg-white disabled:opacity-50"
+                            >
+                                {loadingPending ? 'Loading...' : 'Refresh'}
+                            </button>
+                        </div>
+                        {loadingPending ? (
+                            <div className="text-center py-8">
+                                <p className="text-[var(--text-secondary)]">Loading pending posts...</p>
+                            </div>
+                        ) : pendingPosts.length === 0 ? (
+                            <div className="text-center py-8">
+                                <p className="text-[var(--text-secondary)]">No pending posts to review. All posts are moderated!</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                                {pendingPosts.map(post => (
+                                    <GlassCard key={post.id} className="p-4">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className="flex-1">
+                                                <h3 className="font-bold text-lg">{post.courseName || 'Untitled Post'}</h3>
+                                                <p className="text-sm text-[var(--text-secondary)] mt-1 line-clamp-3">{post.review}</p>
+                                                <div className="flex items-center gap-4 mt-2 text-xs text-[var(--text-secondary)]">
+                                                    <span>Author: {(post.author as User)?.name || 'Unknown'}</span>
+                                                    <span>Likes: {post.likes}</span>
+                                                    {post.linkUrl && (
+                                                        <a href={post.linkUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--primary-accent)] hover:underline">
+                                                            <LinkIcon className="w-4 h-4 inline mr-1" />
+                                                            Link
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 mt-4">
+                                            <button
+                                                onClick={() => handleApprovePost(post.id)}
+                                                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 font-semibold flex items-center justify-center gap-2"
+                                            >
+                                                <CheckIcon className="w-4 h-4" />
+                                                Approve
+                                            </button>
+                                            <button
+                                                onClick={() => handleRejectPost(post.id)}
+                                                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 font-semibold flex items-center justify-center gap-2"
+                                            >
+                                                <XIcon className="w-4 h-4" />
+                                                Reject
+                                            </button>
+                                        </div>
+                                    </GlassCard>
+                                ))}
+                            </div>
+                        )}
+                    </GlassCard>
+                );
+            case 'tools':
+                return (
+                    <div className="space-y-6">
+                        <GlassCard>
+                            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                                <LinkIcon className="w-5 h-5" />
+                                Link Safety Checker
+                            </h2>
+                            <p className="text-sm text-[var(--text-secondary)] mb-4">
+                                Check if a URL is safe or potentially malicious using AI analysis.
+                            </p>
+                            <div className="flex gap-2 mb-4">
+                                <input
+                                    type="url"
+                                    value={linkToCheck}
+                                    onChange={(e) => setLinkToCheck(e.target.value)}
+                                    placeholder="https://example.com"
+                                    className="flex-1 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-full px-4 py-2"
+                                />
+                                <button
+                                    onClick={handleCheckLink}
+                                    disabled={!linkToCheck.trim() || checkingLink}
+                                    className="px-6 py-2 bg-[var(--primary-accent)] text-[var(--primary-accent-text)] rounded-full hover:bg-white disabled:opacity-50 font-semibold"
+                                >
+                                    {checkingLink ? 'Checking...' : 'Check Link'}
+                                </button>
+                            </div>
+                            {linkCheckResult && (
+                                <GlassCard className={`p-4 border-2 ${
+                                    linkCheckResult.isSafe 
+                                        ? linkCheckResult.riskLevel === 'low' 
+                                            ? 'border-green-500' 
+                                            : 'border-yellow-500'
+                                        : 'border-red-500'
+                                }`}>
+                                    <div className="flex items-start gap-3">
+                                        {linkCheckResult.isSafe ? (
+                                            <CheckIcon className={`w-6 h-6 ${linkCheckResult.riskLevel === 'low' ? 'text-green-400' : 'text-yellow-400'}`} />
+                                        ) : (
+                                            <XIcon className="w-6 h-6 text-red-400" />
+                                        )}
+                                        <div className="flex-1">
+                                            <h3 className="font-bold text-lg">
+                                                {linkCheckResult.isSafe ? 'Link appears safe' : 'Link flagged as suspicious'}
+                                            </h3>
+                                            <p className="text-sm text-[var(--text-secondary)] mt-1">
+                                                Risk Level: <span className={`font-semibold ${
+                                                    linkCheckResult.riskLevel === 'high' ? 'text-red-400' :
+                                                    linkCheckResult.riskLevel === 'medium' ? 'text-yellow-400' :
+                                                    'text-green-400'
+                                                }`}>{linkCheckResult.riskLevel.toUpperCase()}</span>
+                                            </p>
+                                            {linkCheckResult.reason && (
+                                                <p className="text-sm text-[var(--text-secondary)] mt-2">{linkCheckResult.reason}</p>
+                                            )}
+                                            {linkCheckResult.warnings && linkCheckResult.warnings.length > 0 && (
+                                                <div className="mt-2">
+                                                    <p className="text-sm font-semibold">Warnings:</p>
+                                                    <ul className="text-sm text-[var(--text-secondary)] list-disc list-inside">
+                                                        {linkCheckResult.warnings.map((warning: string, idx: number) => (
+                                                            <li key={idx}>{warning}</li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </GlassCard>
+                            )}
+                        </GlassCard>
+                    </div>
                 );
              case 'communities':
                 return (
@@ -193,9 +422,11 @@ const AdminPage: React.FC<AdminPageProps> = ({
 
     const TABS: { id: AdminTab, label: string }[] = [
         { id: 'overview', label: 'Overview' },
+        { id: 'moderation', label: 'Moderation' },
         { id: 'users', label: 'Users' },
         { id: 'posts', label: 'Posts' },
         { id: 'communities', label: 'Communities' },
+        { id: 'tools', label: 'Tools' },
     ];
 
     return (

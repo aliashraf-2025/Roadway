@@ -136,8 +136,12 @@ export const usersAPI = {
 // ============= POSTS API =============
 
 export const postsAPI = {
-  getAll: async () => {
-    return apiRequest('/api/posts', {
+  getAll: async (userId?: string, includePending?: boolean) => {
+    const params = new URLSearchParams();
+    if (userId) params.append('userId', userId);
+    if (includePending) params.append('includePending', 'true');
+    const queryString = params.toString();
+    return apiRequest(`/api/posts${queryString ? `?${queryString}` : ''}`, {
       method: 'GET',
     });
   },
@@ -194,6 +198,34 @@ export const postsAPI = {
     return apiRequest(`/api/posts/${postId}/rate`, {
       method: 'POST',
       body: { rating },
+    });
+  },
+
+  // Admin moderation endpoints
+  approve: async (postId: string, userId: string) => {
+    return apiRequest(`/api/posts/${postId}/approve`, {
+      method: 'POST',
+      body: { userId },
+    });
+  },
+
+  reject: async (postId: string, userId: string, reason?: string) => {
+    return apiRequest(`/api/posts/${postId}/reject`, {
+      method: 'POST',
+      body: { userId, reason },
+    });
+  },
+
+  getPendingPosts: async (userId: string) => {
+    return apiRequest(`/api/admin/pending-posts?userId=${userId}`, {
+      method: 'GET',
+    });
+  },
+
+  checkLink: async (userId: string, url: string) => {
+    return apiRequest(`/api/admin/check-link`, {
+      method: 'POST',
+      body: { userId, url },
     });
   },
 };

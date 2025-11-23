@@ -4,7 +4,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import GlassCard from '../components/GlassCard';
 import PostCard from '../components/PostCard';
 import { Roadmap, RoadmapStep, Roadmaps, Post, User, QuizQuestion, QuizAttempt, RoadmapResource, Page } from '../types';
-import { BookIcon, CourseIcon, YouTubeIcon, ArrowLeftIcon, BotIcon, PlusCircleIcon, ClipboardCheckIcon, PinIcon, SearchIcon, XIcon, ShareIcon, CopyIcon } from '../components/icons';
+import { BookIcon, CourseIcon, YouTubeIcon, ArrowLeftIcon, BotIcon, PlusCircleIcon, ClipboardCheckIcon, PinIcon, SearchIcon, XIcon, ShareIcon, CopyIcon, CheckIcon } from '../components/icons';
 
 const resourceIcons = {
     Book: BookIcon,
@@ -307,9 +307,22 @@ const RoadmapTimeline: React.FC<{
             </button>
             <div className="flex items-center gap-2">
                 {roadmapKey && (
-                    <button onClick={handleShare} className="flex items-center gap-2 px-4 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-full hover:bg-[var(--hover-bg)]">
-                        {copied ? <CopyIcon className="w-4 h-4 text-green-400" /> : <ShareIcon className="w-4 h-4" />}
-                        <span className="text-sm font-semibold">{copied ? 'Copied!' : 'Share'}</span>
+                    <button 
+                        onClick={handleShare} 
+                        className="flex items-center gap-2 px-4 py-2 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-full hover:bg-[var(--hover-bg)] transition-all"
+                        title="Copy roadmap link to share"
+                    >
+                        {copied ? (
+                            <>
+                                <CheckIcon className="w-4 h-4 text-green-400" />
+                                <span className="text-sm font-semibold text-green-400">Copied!</span>
+                            </>
+                        ) : (
+                            <>
+                                <CopyIcon className="w-4 h-4" />
+                                <span className="text-sm font-semibold">Copy Link</span>
+                            </>
+                        )}
                     </button>
                 )}
                  {isUnsaved && onSave && (

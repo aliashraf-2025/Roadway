@@ -44,6 +44,7 @@ export const PlusCircleIcon = PlusCircle;
 export const ClipboardCheckIcon = ClipboardCheck;
 export const PinIcon = Pin;
 export const AdminIcon = Shield;
+export const ShieldIcon = Shield;
 export const ShareIcon = Share2;
 export const CopyIcon = Copy;
 

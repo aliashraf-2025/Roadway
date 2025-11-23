@@ -146,6 +146,19 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, [currentUser?.id]);
 
+  // --- CHECK URL FOR SHARED ROADMAP ---
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roadmapKey = urlParams.get('roadmap');
+    if (roadmapKey) {
+      setInitialRoadmapKey(roadmapKey);
+      // Navigate to roadmap page if not already there
+      if (currentUser && currentPage !== 'roadmap') {
+        setCurrentPage('roadmap');
+      }
+    }
+  }, [currentUser, currentPage]);
+
   // --- DATA FETCHING ---
   useEffect(() => {
     const fetchData = async () => {
@@ -154,7 +167,7 @@ const App: React.FC = () => {
         try {
             const results = await Promise.allSettled([
                 usersAPI.getAll(),
-                postsAPI.getAll(),
+                postsAPI.getAll(currentUser.id, currentUser.isAdmin), // Pass userId for admin filtering
                 coursesAPI.getAll(),
                 roadmapsAPI.getUserRoadmaps(currentUser.id)
             ]);
@@ -865,6 +878,15 @@ const App: React.FC = () => {
                 allUsers={allUsers} 
                 allPosts={visiblePosts} 
                 allCourses={courses}
+                currentUser={currentUser}
+                onRefreshPosts={async () => {
+                    try {
+                        const updatedPosts = await postsAPI.getAll(currentUser.id, true);
+                        setPosts(updatedPosts as Post[]);
+                    } catch (error) {
+                        console.error("Error refreshing posts:", error);
+                    }
+                }}
                 onDeleteUser={async (userId) => {
                     if (!currentUser) return;
                     try {
@@ -887,7 +909,7 @@ const App: React.FC = () => {
                     } catch (error: any) {
                         console.error("Error deleting post:", error);
                         alert(`Failed to delete post: ${error.message || 'Unknown error'}`);
-                        const updatedPosts = await postsAPI.getAll();
+                        const updatedPosts = await postsAPI.getAll(currentUser.id, true);
                         setPosts(updatedPosts as Post[]);
                     }
                 }}

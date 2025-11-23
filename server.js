@@ -166,6 +166,182 @@ try {
 const db = admin.firestore();
 const auth = admin.auth();
 
+// ============= AI MODERATION SERVICE =============
+// Initialize Gemini AI for content moderation
+let GoogleGenAI = null;
+let geminiClient = null;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+
+// Try to load @google/genai package
+try {
+  GoogleGenAI = require('@google/genai').GoogleGenAI;
+  if (GEMINI_API_KEY) {
+    geminiClient = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    console.log('✅ Gemini AI initialized for content moderation');
+  } else {
+    console.warn('⚠️  GEMINI_API_KEY not found. Content moderation will be disabled.');
+  }
+} catch (error) {
+  console.warn('⚠️  @google/genai package not available. Content moderation will be disabled.');
+  console.warn('   Install it with: npm install @google/genai');
+}
+
+/**
+ * Content Moderation Service
+ * Uses Gemini AI to detect hate speech, abusive language, and +18 content
+ * @param {string} text - The text content to moderate
+ * @param {string} linkUrl - Optional link URL to check
+ * @returns {Promise<{isViolation: boolean, reason: string, severity: 'low'|'medium'|'high'}>}
+ */
+async function moderateContent(text, linkUrl = null) {
+  if (!geminiClient) {
+    console.warn('Gemini client not available, skipping moderation');
+    return { isViolation: false, reason: '', severity: 'low' };
+  }
+
+  try {
+    const prompt = `Analyze the following content for violations. Check for:
+1. Hate speech or discriminatory language
+2. Abusive, harassing, or threatening language
+3. Explicit sexual content or nudity (+18 content)
+4. Violence or graphic content
+5. Spam or malicious intent
+
+Content to analyze:
+${text}
+${linkUrl ? `\nLink included: ${linkUrl}` : ''}
+
+Respond with a JSON object in this exact format:
+{
+  "isViolation": true/false,
+  "reason": "brief explanation if violation found, empty string if none",
+  "severity": "low" or "medium" or "high" (only if violation),
+  "violationTypes": ["hate_speech"|"abusive"|"explicit"|"violence"|"spam"|"malicious_link"]
+}`;
+
+    const response = await geminiClient.models.generateContent({
+      model: 'gemini-2.0-flash-exp',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+      }
+    });
+
+    const result = JSON.parse(response.text);
+    return {
+      isViolation: result.isViolation || false,
+      reason: result.reason || '',
+      severity: result.severity || 'low',
+      violationTypes: result.violationTypes || []
+    };
+  } catch (error) {
+    console.error('Error in content moderation:', error);
+    // On error, allow content but log it
+    return { isViolation: false, reason: 'Moderation check failed', severity: 'low' };
+  }
+}
+
+/**
+ * Link Safety Checker
+ * Analyzes a URL to determine if it's safe or suspicious
+ * @param {string} url - The URL to check
+ * @returns {Promise<{isSafe: boolean, riskLevel: 'low'|'medium'|'high', reason: string}>}
+ */
+async function checkLinkSafety(url) {
+  if (!geminiClient) {
+    console.warn('Gemini client not available, skipping link check');
+    return { isSafe: true, riskLevel: 'low', reason: 'Link checker unavailable' };
+  }
+
+  if (!url || !url.startsWith('http')) {
+    return { isSafe: false, riskLevel: 'high', reason: 'Invalid URL format' };
+  }
+
+  try {
+    const prompt = `Analyze this URL for safety and malicious intent:
+${url}
+
+Check for:
+1. Phishing attempts
+2. Malware or suspicious downloads
+3. Scam websites
+4. Suspicious domain patterns
+5. Known malicious patterns
+
+Respond with JSON:
+{
+  "isSafe": true/false,
+  "riskLevel": "low" or "medium" or "high",
+  "reason": "brief explanation",
+  "warnings": ["list of any warnings"]
+}`;
+
+    const response = await geminiClient.models.generateContent({
+      model: 'gemini-2.0-flash-exp',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+      }
+    });
+
+    const result = JSON.parse(response.text);
+    return {
+      isSafe: result.isSafe !== false,
+      riskLevel: result.riskLevel || 'low',
+      reason: result.reason || '',
+      warnings: result.warnings || []
+    };
+  } catch (error) {
+    console.error('Error in link safety check:', error);
+    return { isSafe: true, riskLevel: 'low', reason: 'Link check failed' };
+  }
+}
+
+/**
+ * Update User Trust Status
+ * Checks if user has 5+ clean posts and marks them as trusted
+ * @param {string} userId - The user ID
+ * @param {boolean} isCleanPost - Whether the current post is clean
+ */
+async function updateUserTrustStatus(userId, isCleanPost) {
+  try {
+    const userRef = db.collection('users').doc(userId);
+    const userDoc = await userRef.get();
+    
+    if (!userDoc.exists) return;
+
+    const userData = userDoc.data();
+    const currentCleanCount = userData.cleanPostCount || 0;
+    const currentViolations = userData.postViolations || 0;
+    const isTrusted = userData.isTrusted || false;
+
+    if (isCleanPost) {
+      const newCleanCount = currentCleanCount + 1;
+      // Mark as trusted if they have 5+ clean posts
+      if (newCleanCount >= 5 && !isTrusted) {
+        await userRef.update({
+          cleanPostCount: newCleanCount,
+          isTrusted: true
+        });
+        console.log(`✅ User ${userId} marked as trusted (${newCleanCount} clean posts)`);
+      } else {
+        await userRef.update({
+          cleanPostCount: newCleanCount
+        });
+      }
+    } else {
+      // Post had violation, increment violation count
+      await userRef.update({
+        postViolations: currentViolations + 1,
+        // Reset clean count on violation
+        cleanPostCount: 0
+      });
+    }
+  } catch (error) {
+    console.error('Error updating user trust status:', error);
+  }
+}
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Firebase API server is running' });
@@ -405,12 +581,32 @@ app.delete('/api/users/:id', async (req, res) => {
 
 // ============= POSTS ENDPOINTS =============
 
-// Get all posts
+// Get all posts (filtered by status for non-admins)
 app.get('/api/posts', async (req, res) => {
   try {
-    const snapshot = await db.collection('posts')
-      .orderBy('timestamp', 'desc')
-      .get();
+    const { userId, includePending } = req.query; // userId for admin check
+    
+    let query = db.collection('posts').orderBy('timestamp', 'desc');
+    
+    // Check if user is admin
+    let isAdmin = false;
+    if (userId) {
+      try {
+        const userDoc = await db.collection('users').doc(userId).get();
+        if (userDoc.exists) {
+          isAdmin = userDoc.data().isAdmin === true;
+        }
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+      }
+    }
+    
+    // Non-admins only see approved posts
+    if (!isAdmin && includePending !== 'true') {
+      query = query.where('status', '==', 'approved');
+    }
+    
+    const snapshot = await query.get();
     
     const posts = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -448,14 +644,63 @@ app.get('/api/posts/:id', async (req, res) => {
 app.post('/api/posts', async (req, res) => {
   try {
     const postData = req.body;
+    
+    // Extract author ID for trust status update
+    let authorId = null;
+    if (typeof postData.author === 'string') {
+      authorId = postData.author;
+    } else if (postData.author && typeof postData.author === 'object') {
+      authorId = postData.author.id || postData.author.uid;
+    }
+
+    // Content moderation: Check post content and links
+    const contentToCheck = `${postData.courseName || ''} ${postData.review || ''}`.trim();
+    const moderationResult = await moderateContent(contentToCheck, postData.linkUrl || null);
+    
+    // Link safety check if link is provided
+    let linkCheckResult = { isSafe: true, riskLevel: 'low' };
+    if (postData.linkUrl) {
+      linkCheckResult = await checkLinkSafety(postData.linkUrl);
+    }
+
+    // Determine post status based on moderation
+    let postStatus = 'pending';
+    let moderationReason = '';
+    
+    if (moderationResult.isViolation || !linkCheckResult.isSafe) {
+      // Violation found - delete/reject the post
+      postStatus = 'rejected';
+      moderationReason = moderationResult.reason || 
+        (linkCheckResult.riskLevel === 'high' ? 'Suspicious or malicious link detected' : 'Content violation detected');
+      
+      // Update user violation count
+      if (authorId) {
+        await updateUserTrustStatus(authorId, false);
+      }
+      
+      // Return error response - post will not be created
+      return res.status(400).json({ 
+        error: 'Post rejected due to content policy violation',
+        reason: moderationReason,
+        violationTypes: moderationResult.violationTypes || []
+      });
+    }
+
+    // Post is clean - create it with pending status (requires admin approval)
     const docRef = await db.collection('posts').add({
       ...postData,
+      status: postStatus, // 'pending' - requires admin approval
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     const newDoc = await docRef.get();
     const createdPost = newDoc.data();
+    
+    // Update user clean post count (post is pending, but content is clean)
+    if (authorId) {
+      await updateUserTrustStatus(authorId, true);
+    }
     
     // If this is a repost, create notification for original post author
     if (createdPost.repostOf) {
@@ -560,6 +805,170 @@ app.delete('/api/posts/:id', async (req, res) => {
     await db.collection('posts').doc(id).delete();
     
     res.json({ success: true, message: 'Post deleted' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============= ADMIN MODERATION ENDPOINTS =============
+
+// Approve post (Admin only)
+app.post('/api/posts/:id/approve', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.body; // Admin user ID
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+    
+    // Verify user is admin
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const user = userDoc.data();
+    if (user.isAdmin !== true) {
+      return res.status(403).json({ error: 'Only admins can approve posts' });
+    }
+    
+    // Update post status
+    await db.collection('posts').doc(id).update({
+      status: 'approved',
+      approvedAt: admin.firestore.FieldValue.serverTimestamp(),
+      approvedBy: userId
+    });
+    
+    const updatedDoc = await db.collection('posts').doc(id).get();
+    res.json({
+      id: updatedDoc.id,
+      ...updatedDoc.data(),
+      timestamp: updatedDoc.data().timestamp?.toDate().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Reject post (Admin only)
+app.post('/api/posts/:id/reject', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, reason } = req.body; // Admin user ID and rejection reason
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+    
+    // Verify user is admin
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const user = userDoc.data();
+    if (user.isAdmin !== true) {
+      return res.status(403).json({ error: 'Only admins can reject posts' });
+    }
+    
+    // Get post to update user violation count
+    const postDoc = await db.collection('posts').doc(id).get();
+    if (postDoc.exists) {
+      const post = postDoc.data();
+      let authorId = null;
+      if (typeof post.author === 'string') {
+        authorId = post.author;
+      } else if (post.author && typeof post.author === 'object') {
+        authorId = post.author.id || post.author.uid;
+      }
+      
+      if (authorId) {
+        await updateUserTrustStatus(authorId, false);
+      }
+    }
+    
+    // Update post status
+    await db.collection('posts').doc(id).update({
+      status: 'rejected',
+      moderationReason: reason || 'Post rejected by admin',
+      rejectedAt: admin.firestore.FieldValue.serverTimestamp(),
+      rejectedBy: userId
+    });
+    
+    const updatedDoc = await db.collection('posts').doc(id).get();
+    res.json({
+      id: updatedDoc.id,
+      ...updatedDoc.data(),
+      timestamp: updatedDoc.data().timestamp?.toDate().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Link checker endpoint (Admin only)
+app.post('/api/admin/check-link', async (req, res) => {
+  try {
+    const { userId, url } = req.body;
+    
+    if (!userId || !url) {
+      return res.status(400).json({ error: 'userId and url are required' });
+    }
+    
+    // Verify user is admin
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const user = userDoc.data();
+    if (user.isAdmin !== true) {
+      return res.status(403).json({ error: 'Only admins can use link checker' });
+    }
+    
+    // Check link safety
+    const result = await checkLinkSafety(url);
+    
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get pending posts (Admin only)
+app.get('/api/admin/pending-posts', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+    
+    // Verify user is admin
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const user = userDoc.data();
+    if (user.isAdmin !== true) {
+      return res.status(403).json({ error: 'Only admins can view pending posts' });
+    }
+    
+    // Get pending posts
+    const snapshot = await db.collection('posts')
+      .where('status', '==', 'pending')
+      .orderBy('timestamp', 'desc')
+      .get();
+    
+    const posts = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      timestamp: doc.data().timestamp?.toDate().toISOString()
+    }));
+    
+    res.json(posts);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
