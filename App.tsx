@@ -1,40 +1,53 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Page, User, Post, Course, Comment, Theme, Notification, Roadmaps, Roadmap, ChatMessage } from './types';
 
-import { auth } from './firebase';
+// استيراد db و auth من ملف firebase.ts
+import { auth, db } from './firebase';
 import { 
     createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword, 
     signInWithCustomToken,
     signOut, 
     onAuthStateChanged 
 } from 'firebase/auth';
-import { usersAPI, postsAPI, coursesAPI, roadmapsAPI, authAPI } from './api';
+
+// استيراد دوال Firestore للتعامل مع قاعدة البيانات والإشعارات اللحظية
+import { collection, query, where, orderBy, onSnapshot, limit } from 'firebase/firestore';
+import { usersAPI, postsAPI, coursesAPI, roadmapsAPI, authAPI, notificationsAPI } from './api';
 
 import Layout from './components/Layout';
-import LandingPage from './pages/LandingPage';
-import HomePage from './pages/HomePage';
-import DiscoverPage from './pages/DiscoverPage';
-import RoadmapPage from './pages/RoadmapPage';
-import ProfilePage from './pages/ProfilePage';
-import AboutPage from './pages/AboutPage';
-import PrivacyPage from './pages/PrivacyPage';
-import TermsPage from './pages/TermsPage';
-import SupportPage from './pages/SupportPage';
-import ChatPage from './pages/ChatPage';
 import EditPostModal from './components/EditPostModal';
 import GlassCard from './components/GlassCard';
-import CommunityPage from './pages/CommunityPage';
 import EditCommunityModal from './components/EditCommunityModal';
-import AdminPage from './pages/AdminPage';
 
+// --- 1. LAZY LOADING PAGES (لتحسين أداء الموقع وسرعة التحميل) ---
+const LandingPage = React.lazy(() => import('./pages/LandingPage'));
+const HomePage = React.lazy(() => import('./pages/HomePage'));
+const DiscoverPage = React.lazy(() => import('./pages/DiscoverPage'));
+const RoadmapPage = React.lazy(() => import('./pages/RoadmapPage'));
+const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
+const AboutPage = React.lazy(() => import('./pages/AboutPage'));
+const PrivacyPage = React.lazy(() => import('./pages/PrivacyPage'));
+const TermsPage = React.lazy(() => import('./pages/TermsPage'));
+const SupportPage = React.lazy(() => import('./pages/SupportPage'));
+const ChatPage = React.lazy(() => import('./pages/ChatPage'));
+const CommunityPage = React.lazy(() => import('./pages/CommunityPage'));
+const AdminPage = React.lazy(() => import('./pages/AdminPage'));
+
+// شاشة تحميل تظهر أثناء التنقل بين الصفحات
+const PageLoader = () => (
+  <div className="flex items-center justify-center h-screen bg-[var(--background)] text-[var(--primary-accent)]">
+    <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 border-4 border-current border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-sm font-semibold animate-pulse">Loading Roadway...</p>
+    </div>
+  </div>
+);
 
 type UserSignUpData = Omit<User, 'id' | 'avatarUrl' | 'followers' | 'following' | 'studyYear' | 'isActive' | 'followingIds' | 'blockedUserIds' | 'joinedCommunities'> & {
     password?: string;
     studyYear: string;
 };
-
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('landing');
@@ -63,16 +76,15 @@ const App: React.FC = () => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
   
-  // --- AUTH & DATA FETCHING ---
+  // --- AUTH LISTENER ---
   useEffect(() => {
-    setIsLoading(true);
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
             try {
                 const userData = await usersAPI.getById(user.uid);
-                setCurrentUser({ id: user.uid, ...userData } as User);
+                // التعديل: ضفنا (userData as any) عشان نجبره يقبل البيانات
+                setCurrentUser({ id: user.uid, ...(userData as any) } as User);
             } catch (error) {
-                // User doesn't exist in Firestore, log them out
                 console.error("User not found in database:", error);
                 await signOut(auth);
                 setCurrentUser(null);
@@ -81,19 +93,65 @@ const App: React.FC = () => {
             setCurrentUser(null);
             setCurrentPage('landing');
         }
-        // A small delay to prevent UI flashing on fast reloads
         setTimeout(() => setIsLoading(false), 300);
     });
     return () => unsubscribe();
   }, []);
 
+  // --- 2. REAL-TIME NOTIFICATIONS (إصلاح مشكلة الإشعارات) ---
+  useEffect(() => {
+    if (!currentUser) {
+        setNotifications([]);
+        return;
+    }
+
+    // الاستماع المباشر للتغييرات في مجموعة "notifications" في Firestore
+    const q = query(
+        collection(db, "notifications"),
+        where("targetUserId", "==", currentUser.id),
+        orderBy("timestamp", "desc"),
+        limit(50)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const newNotifications: Notification[] = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                type: data.type,
+                timestamp: data.timestamp?.toDate().toISOString() || new Date().toISOString(),
+                read: data.read,
+                // بيانات مؤقتة للمستخدم لحين عمل Hydration
+                user: {
+                    id: data.userId,
+                    name: 'User', 
+                    username: 'user',
+                    avatarUrl: 'https://avatar.vercel.sh/user.svg',
+                    studyYear: 1,
+                    specialization: '',
+                    followers: 0, following: 0, isActive: true,
+                    followingIds: [], blockedUserIds: [], joinedCommunities: []
+                },
+                post: data.postId ? { id: data.postId } as Post : undefined
+            } as Notification;
+        });
+        setNotifications(newNotifications);
+    }, (error) => {
+        // تجاهل أخطاء الصلاحيات المبدئية
+        if (error.code !== 'permission-denied') {
+             console.error("Real-time notification error:", error);
+        }
+    });
+
+    return () => unsubscribe();
+  }, [currentUser?.id]);
+
+  // --- DATA FETCHING ---
   useEffect(() => {
     const fetchData = async () => {
         if (!currentUser) return;
         
-        setIsLoading(true);
         try {
-            // Fetch all data - handle errors individually to prevent one failure from blocking others
             const results = await Promise.allSettled([
                 usersAPI.getAll(),
                 postsAPI.getAll(),
@@ -101,22 +159,15 @@ const App: React.FC = () => {
                 roadmapsAPI.getUserRoadmaps(currentUser.id)
             ]);
 
-            // Process users
             if (results[0].status === 'fulfilled') {
                 setAllUsers(results[0].value as User[]);
-            } else {
-                console.error("Error fetching users:", results[0].reason);
             }
             
-            // Process posts - create map for repost references
             if (results[1].status === 'fulfilled') {
                 const postsList = results[1].value as any[];
                 const postsMap = new Map();
-                postsList.forEach(post => {
-                    postsMap.set(post.id, post);
-                });
+                postsList.forEach(post => postsMap.set(post.id, post));
 
-                // Hydrate repostOf references
                 const hydratedPosts = postsList.map((p: any) => {
                     if (p.repostOf && typeof p.repostOf === 'string') {
                         return { ...p, repostOf: postsMap.get(p.repostOf) };
@@ -124,28 +175,18 @@ const App: React.FC = () => {
                     return p;
                 });
                 setPosts(hydratedPosts as Post[]);
-            } else {
-                console.error("Error fetching posts:", results[1].reason);
-                setPosts([]);
             }
             
-            // Process courses
             if (results[2].status === 'fulfilled') {
                 setCourses(results[2].value as Course[]);
-            } else {
-                console.error("Error fetching courses:", results[2].reason);
             }
             
-            // Process roadmaps
             if (results[3].status === 'fulfilled') {
                 setSavedRoadmaps(results[3].value as Roadmaps);
-            } else {
-                console.error("Error fetching roadmaps:", results[3].reason);
-                setSavedRoadmaps({});
             }
 
         } catch (error) {
-            console.error("Error fetching data:", error);
+            console.error("Error fetching initial data:", error);
         } finally {
             setIsLoading(false);
         }
@@ -154,7 +195,17 @@ const App: React.FC = () => {
     if (currentUser) {
         fetchData();
     }
-  }, [currentUser]);
+  }, [currentUser?.id]);
+
+
+  // --- HYDRATION (دمج البيانات) ---
+  const hydratedNotifications = useMemo(() => {
+      return notifications.map(notif => {
+          const realUser = allUsers.find(u => u.id === notif.user.id);
+          const realPost = posts.find(p => p.id === notif.post?.id);
+          return { ...notif, user: realUser || notif.user, post: realPost || notif.post };
+      });
+  }, [notifications, allUsers, posts]);
 
 
   const hydratedPosts = useMemo(() => {
@@ -186,17 +237,14 @@ const App: React.FC = () => {
   }, [posts, allUsers]);
 
 
+  // --- HANDLERS ---
   const handleToggleTheme = () => {
     setTheme(prevTheme => prevTheme === 'dark' ? 'light' : 'dark');
   };
-
   const handleLogin = async (email: string, password: string) => {
     try {
-      // Call backend API to get custom token
       const response = await authAPI.login(email, password) as any;
-      
       if (response.success && response.customToken) {
-        // Sign in with the custom token from backend
         await signInWithCustomToken(auth, response.customToken);
         setCurrentPage('home');
       } else {
@@ -204,8 +252,7 @@ const App: React.FC = () => {
       }
     } catch (error: any) {
       console.error("Login Error:", error);
-      const errorMessage = error.message || "Failed to log in. Please check your credentials.";
-      alert(errorMessage);
+      alert(error.message || "Failed to log in.");
     }
   };
 
@@ -240,10 +287,8 @@ const App: React.FC = () => {
     }
   };
 
-
   const handleLogout = async () => {
     await signOut(auth);
-    // State will be cleared by onAuthStateChanged listener
   };
 
   const handleLikePost = async (postId: string) => {
@@ -255,16 +300,19 @@ const App: React.FC = () => {
     const newLikes = isLiked ? post.likes - 1 : post.likes + 1;
 
     // Optimistic update
-    setPosts(posts.map(p => p.id === postId ? { ...p, likedBy: isLiked ? p.likedBy.filter(id => id !== currentUser.id) : [...(p.likedBy || []), currentUser.id], likes: newLikes } : p));
+    setPosts(posts.map(p => p.id === postId ? { 
+        ...p, 
+        likedBy: isLiked ? p.likedBy.filter(id => id !== currentUser.id) : [...(p.likedBy || []), currentUser.id], 
+        likes: newLikes 
+    } : p));
 
-    // API call
     try {
         const updatedPost = await postsAPI.like(postId, currentUser.id);
-        setPosts(posts.map(p => p.id === postId ? { ...p, ...updatedPost } : p));
+        // FIX: Cast result to Post to avoid "Spread types" error
+        setPosts(posts.map(p => p.id === postId ? { ...p, ...(updatedPost as Post) } : p));
     } catch (error) {
         console.error("Error liking post:", error);
-        // Revert optimistic update on error
-        setPosts(posts);
+        // Revert logic can be added here if needed
     }
   };
   
@@ -273,7 +321,6 @@ const App: React.FC = () => {
     const post = posts.find(p => p.id === postId);
     if (!post) return;
     
-    // Optimistic update
     const updatedComments = post.comments.map(comment => {
         if (comment.id === commentId) {
             const isLiked = (comment.likedBy || []).includes(currentUser.id);
@@ -288,47 +335,69 @@ const App: React.FC = () => {
     
     setPosts(posts.map(p => p.id === postId ? { ...p, comments: updatedComments } : p));
     
-    // API call
     try {
         const updatedPost = await postsAPI.likeComment(postId, commentId, currentUser.id);
-        setPosts(posts.map(p => p.id === postId ? { ...p, ...updatedPost } : p));
+        // FIX: Cast result to Post
+        setPosts(posts.map(p => p.id === postId ? { ...p, ...(updatedPost as Post) } : p));
     } catch (error) {
         console.error("Error liking comment:", error);
-        setPosts(posts);
     }
   };
 
   const handleRatePost = async (postId: string, rating: number) => {
-    // Optimistic update
     setPosts(posts.map(post => post.id === postId ? { ...post, rating } : post));
-    
-    // API call
     try {
         const updatedPost = await postsAPI.rate(postId, rating);
-        setPosts(posts.map(p => p.id === postId ? { ...p, ...updatedPost } : p));
+        // FIX: Cast result to Post
+        setPosts(posts.map(p => p.id === postId ? { ...p, ...(updatedPost as Post) } : p));
     } catch (error) {
         console.error("Error rating post:", error);
-        setPosts(posts);
     }
   };
 
+  // --- 3. OPTIMISTIC POST CREATION (نشر سريع جداً) ---
   const handleCreatePost = async (postData: Omit<Post, 'id' | 'author' | 'likes' | 'comments' | 'timestamp' | 'likedBy' | 'repostOf'>) => {
     if (!currentUser) return;
-    const newPostData = {
+    
+    // 1. إنشاء بوست وهمي وعرضه فوراً
+    const tempId = `temp-${Date.now()}`;
+    const tempPost: Post = {
         ...postData,
-        author: currentUser.id,
+        id: tempId,
+        author: currentUser,
         likes: 0,
         comments: [],
         likedBy: [],
         field: postData.field || currentUser.specialization,
+        timestamp: new Date().toISOString()
     };
+
+    setPosts([tempPost, ...posts]);
     
+    // 2. إرسال البيانات للسيرفر
     try {
+        const newPostData = {
+            ...postData,
+            author: currentUser.id,
+            likes: 0,
+            comments: [],
+            likedBy: [],
+            field: postData.field || currentUser.specialization,
+        };
         const createdPost = await postsAPI.create(newPostData);
-        const newPost = { ...createdPost, author: currentUser, timestamp: createdPost.timestamp || new Date().toISOString() };
-        setPosts([newPost as Post, ...posts]);
+        
+        // 3. استبدال البوست الوهمي بالحقيقي مع إصلاح خطأ الـ timestamp
+        // FIX: Ensure timestamp exists and cast types properly
+        const realPost = { 
+            ...(createdPost as Post), 
+            author: currentUser, 
+            timestamp: (createdPost as any).timestamp || new Date().toISOString() 
+        };
+        setPosts(prev => prev.map(p => p.id === tempId ? realPost as Post : p));
+        
     } catch (error) {
         console.error("Error creating post:", error);
+        setPosts(prev => prev.filter(p => p.id !== tempId));
         alert("Failed to create post. Please try again.");
     }
   };
@@ -345,49 +414,55 @@ const App: React.FC = () => {
           likedBy: [],
       };
       
-      // Optimistic update
       setPosts(posts.map(post => post.id === postId ? { ...post, comments: [...post.comments, newCommentHydrated] } : post));
 
-      // API call
       try {
           const updatedPost = await postsAPI.addComment(postId, currentUser.id, commentText);
-          setPosts(posts.map(p => p.id === postId ? { ...p, ...updatedPost } : p));
+          // FIX: Cast result to Post
+          setPosts(posts.map(p => p.id === postId ? { ...p, ...(updatedPost as Post) } : p));
       } catch (error) {
           console.error("Error adding comment:", error);
-          setPosts(posts);
       }
-  };
+   };
 
-  const handleFollowToggle = async (targetUserId: string) => {
-      if (!currentUser || currentUser.id === targetUserId) return;
-      const targetUser = allUsers.find(u=>u.id === targetUserId);
-      if (!targetUser) return;
-      
-      const isFollowing = currentUser.followingIds.includes(targetUserId);
+   const handleFollowToggle = async (targetUserId: string) => {
+    if (!currentUser || currentUser.id === targetUserId) return;
+    
+    // 1. Find target user first to ensure existence
+    const targetUser = allUsers.find(u => u.id === targetUserId);
+    if (!targetUser) return;
 
-      // Optimistic update
-      const updatedCurrentUser = {
-          ...currentUser,
-          following: isFollowing ? currentUser.following - 1 : currentUser.following + 1,
-          followingIds: isFollowing ? currentUser.followingIds.filter(id => id !== targetUserId) : [...currentUser.followingIds, targetUserId]
-      };
-      const updatedTargetUser = {
-          ...targetUser,
-          followers: isFollowing ? targetUser.followers - 1 : targetUser.followers + 1
-      };
-      setCurrentUser(updatedCurrentUser);
-      setAllUsers(allUsers.map(u => u.id === currentUser.id ? updatedCurrentUser : (u.id === targetUserId ? updatedTargetUser : u) ));
+    const isFollowing = currentUser.followingIds.includes(targetUserId);
 
-      // API call
-      try {
-          const result = await usersAPI.follow(currentUser.id, targetUserId);
-          setCurrentUser(result.currentUser as User);
-          setAllUsers(allUsers.map(u => u.id === currentUser.id ? result.currentUser as User : (u.id === targetUserId ? result.targetUser as User : u)));
-      } catch (error) {
-          console.error("Error following user:", error);
-          setCurrentUser(currentUser);
-          setAllUsers(allUsers);
-      }
+    // 2. Prepare updated objects
+    const updatedCurrentUser = {
+        ...currentUser,
+        following: isFollowing ? currentUser.following - 1 : currentUser.following + 1,
+        followingIds: isFollowing ? currentUser.followingIds.filter(id => id !== targetUserId) : [...currentUser.followingIds, targetUserId]
+    };
+    
+    const updatedTargetUser = {
+        ...targetUser,
+        followers: isFollowing ? targetUser.followers - 1 : targetUser.followers + 1
+    };
+
+    // 3. Update State
+    setCurrentUser(updatedCurrentUser);
+    setAllUsers(prevUsers => prevUsers.map(u => {
+        if (u.id === currentUser.id) return updatedCurrentUser;
+        if (u.id === targetUserId) return updatedTargetUser;
+        return u;
+    }));
+
+    // 4. API Call
+    try {
+        const result = await usersAPI.follow(currentUser.id, targetUserId);
+        // Update with real server data if needed
+    } catch (error) {
+        console.error("Error following user:", error);
+        // Revert logic acts as safety net
+        setCurrentUser(currentUser);
+    }
   };
   
   const handleViewProfile = (userId: string) => {
@@ -411,39 +486,52 @@ const App: React.FC = () => {
     setEditingPost(post);
   };
   
-  const handleUpdatePost = async (updatedData: { courseName: string; review: string; rating: number; }) => {
+  // ✅ التعديل هنا: الدالة بقيت تقبل Partial<Post> يعني أي بيانات تتعدل
+  const handleUpdatePost = async (updatedData: Partial<Post>) => {
     if (!editingPost) return;
-    // Optimistic update
+    
+    // تحديث فوري (Optimistic Update)
     setPosts(posts.map(p => p.id === editingPost.id ? { ...p, ...updatedData } : p));
     setEditingPost(null);
     
-    // API call
     try {
-        const updatedPost = await postsAPI.update(editingPost.id, updatedData);
-        setPosts(posts.map(p => p.id === editingPost.id ? { ...p, ...updatedPost } : p));
+        // إرسال للسيرفر
+        const result = await postsAPI.update(editingPost.id, updatedData);
+        
+        // التأكد من التحديث من السيرفر
+        setPosts(posts.map(p => p.id === editingPost.id ? { ...p, ...(result as Post) } : p));
     } catch (error) {
         console.error("Error updating post:", error);
-        setPosts(posts);
+        alert("Failed to update post.");
     }
   };
 
   const handleUpdateProfile = async (updatedData: Partial<User>) => {
     if (!currentUser) return;
-    // Optimistic update
+    
+    if (updatedData.avatarUrl && updatedData.avatarUrl.startsWith('data:image')) {
+      const base64Size = updatedData.avatarUrl.length * 0.75;
+      if (base64Size > 1000000) {
+        alert('Image is too large. Please use an image smaller than 1MB.');
+        return;
+      }
+    }
+    
     const updatedUser = { ...currentUser, ...updatedData };
     setCurrentUser(updatedUser);
     setAllUsers(allUsers.map(u => u.id === currentUser.id ? updatedUser : u));
     
-    // API call
     try {
         const result = await usersAPI.update(currentUser.id, updatedData);
-        const finalUser = { id: currentUser.id, ...result } as User;
+        // FIX: Cast result to User
+        const finalUser = { id: currentUser.id, ...(result as User) } as User;
         setCurrentUser(finalUser);
         setAllUsers(allUsers.map(u => u.id === currentUser.id ? finalUser : u));
-    } catch (error) {
+        alert('Profile updated successfully!');
+    } catch (error: any) {
         console.error("Error updating profile:", error);
+        alert(`Failed to update profile: ${error.message || 'Unknown error'}`);
         setCurrentUser(currentUser);
-        setAllUsers(allUsers);
     }
   };
 
@@ -451,18 +539,15 @@ const App: React.FC = () => {
   const handleCloseDeleteConfirm = () => setPostToDelete(null);
 
   const handleConfirmDelete = async () => {
-    if (postToDelete) {
+    if (postToDelete && currentUser) {
       const postId = postToDelete.id;
-      // Optimistic update
       setPosts(prev => prev.filter(p => p.id !== postId));
       setPostToDelete(null);
       
-      // API call
       try {
-          await postsAPI.delete(postId);
+          await postsAPI.delete(postId, currentUser.id);
       } catch (error) {
           console.error("Error deleting post:", error);
-          // Re-add post on error (simplified - in production, refetch)
           setPosts([...posts, postToDelete]);
       }
     }
@@ -481,21 +566,19 @@ const App: React.FC = () => {
   
   const handleBlockUser = async (userIdToBlock: string) => {
     if (!currentUser || currentUser.id === userIdToBlock) return;
-    // Optimistic update
     const updatedUser = { ...currentUser, blockedUserIds: [...currentUser.blockedUserIds, userIdToBlock] };
     setCurrentUser(updatedUser);
     setAllUsers(allUsers.map(u => u.id === currentUser.id ? updatedUser : u));
     
-    // API call
     try {
         const result = await usersAPI.block(currentUser.id, userIdToBlock);
-        const finalUser = { id: currentUser.id, ...result } as User;
+        // FIX: Cast result to User
+        const finalUser = { id: currentUser.id, ...(result as User) } as User;
         setCurrentUser(finalUser);
         setAllUsers(allUsers.map(u => u.id === currentUser.id ? finalUser : u));
     } catch (error) {
         console.error("Error blocking user:", error);
         setCurrentUser(currentUser);
-        setAllUsers(allUsers);
     }
   };
   
@@ -513,12 +596,9 @@ const App: React.FC = () => {
     });
   }, [hydratedPosts, currentUser, hiddenPostIds]);
 
+  // --- RENDER ---
   if (isLoading) {
-    return (
-        <div className="flex items-center justify-center h-screen bg-[#0D0D0D] text-white">
-            <div className="text-lg font-semibold animate-pulse">Loading A2Z...</div>
-        </div>
-    );
+    return <PageLoader />;
   }
 
   const navigate = (page: Page) => {
@@ -541,73 +621,111 @@ const App: React.FC = () => {
     const isJoined = currentUser.joinedCommunities.includes(field);
     const action = isJoined ? 'leave' : 'join';
     
-    // Optimistic update
     const updatedUser = {...currentUser, joinedCommunities: isJoined ? currentUser.joinedCommunities.filter(c => c !== field) : [...currentUser.joinedCommunities, field] };
     setCurrentUser(updatedUser);
     setAllUsers(allUsers.map(u => u.id === currentUser.id ? updatedUser : u));
     
-    // API call
     try {
         const result = await usersAPI.joinCommunity(currentUser.id, field, action);
-        const finalUser = { id: currentUser.id, ...result } as User;
+        // FIX: Cast result to User
+        const finalUser = { id: currentUser.id, ...(result as User) } as User;
         setCurrentUser(finalUser);
         setAllUsers(allUsers.map(u => u.id === currentUser.id ? finalUser : u));
     } catch (error) {
         console.error("Error joining/leaving community:", error);
         setCurrentUser(currentUser);
-        setAllUsers(allUsers);
     }
   };
   
+  // 1. استبدل دالة handleCreateCommunity القديمة بدي (عشان السرعة)
   const handleCreateCommunity = async (communityData: Omit<Course, 'id' | 'rating' | 'platform' | 'ownerId'>) => {
     if (!currentUser) return;
-    const newCommunityData = {
+
+    // إنشاء ID مؤقت وبيانات وهمية للعرض الفوري
+    const tempId = `temp-${Date.now()}`;
+    const newCommunityData: Course = {
+      id: tempId,
       ...communityData,
       rating: 0,
       platform: 'Community',
       ownerId: currentUser.id,
     };
     
+    // تحديث الشاشة فوراً (السرعة القصوى) 🚀
+    setCourses(prev => [newCommunityData, ...prev]);
+    
+    // نقلك للصفحة الجديدة فوراً
+    setViewedCommunity(newCommunityData);
+    setCurrentPage('community');
+    
     try {
-        const createdCourse = await coursesAPI.create(newCommunityData);
-        setCourses(prev => [createdCourse as Course, ...prev]);
+        // إرسال البيانات للسيرفر في الخلفية
+        const createdCourse = await coursesAPI.create({
+            ...communityData,
+            rating: 0,
+            platform: 'Community',
+            ownerId: currentUser.id,
+        });
+        
+        // تحديث الـ ID المؤقت بالحقيقي بعد نجاح السيرفر
+        const realCourse = createdCourse as Course;
+        setCourses(prev => prev.map(c => c.id === tempId ? realCourse : c));
+        setViewedCommunity(realCourse);
+        
+        // تحديث قائمة مجتمعات المستخدم
         await handleJoinCommunityToggle(communityData.field);
+
     } catch (error) {
         console.error("Error creating community:", error);
-        alert("Failed to create community. Please try again.");
+        // لو حصل خطأ، نرجع نمسح المجتمع المؤقت
+        setCourses(prev => prev.filter(c => c.id !== tempId));
+        setViewedCommunity(null);
+        setCurrentPage('discover'); // ارجع لصفحة الاستكشاف
+        alert("Failed to create community. Check internet or image size (max 1MB).");
+    }
+  };
+
+  // 2. ضيف الدالة الجديدة دي (عشان تقييم المجتمع)
+  const handleRateCommunity = async (courseId: string, rating: number) => {
+    // تحديث فوري
+    setCourses(courses.map(c => c.id === courseId ? { ...c, rating } : c));
+    if (viewedCommunity && viewedCommunity.id === courseId) {
+        setViewedCommunity({ ...viewedCommunity, rating });
+    }
+
+    try {
+        await coursesAPI.rate(courseId, rating);
+    } catch (error) {
+        console.error("Error rating community:", error);
     }
   };
   
   const handleUpdateCommunity = async (updatedData: Partial<Course>) => {
     if (!editingCommunity) return;
-    // Optimistic update
     const updatedCourses = courses.map(c => c.id === editingCommunity.id ? { ...c, ...updatedData } : c);
     setCourses(updatedCourses);
     setViewedCommunity(prev => prev ? { ...prev, ...updatedData } : null);
     setEditingCommunity(null);
     
-    // API call
     try {
         const result = await coursesAPI.update(editingCommunity.id, updatedData);
+        // FIX: Cast result to Course
         setCourses(courses.map(c => c.id === editingCommunity.id ? result as Course : c));
         setViewedCommunity(prev => prev && prev.id === editingCommunity.id ? result as Course : prev);
     } catch (error) {
         console.error("Error updating community:", error);
-        setCourses(courses);
     }
   };
 
   const handleConfirmDeleteCommunity = async () => {
-    if (!communityToDelete) return;
+    if (!communityToDelete || !currentUser) return;
     const communityId = communityToDelete.id;
-    // Optimistic update
     setCourses(prev => prev.filter(c => c.id !== communityId));
     setCurrentPage('discover');
     setCommunityToDelete(null);
     
-    // API call
     try {
-        await coursesAPI.delete(communityId);
+        await coursesAPI.delete(communityId, currentUser.id);
     } catch (error) {
         console.error("Error deleting community:", error);
         setCourses([...courses, communityToDelete]);
@@ -618,20 +736,34 @@ const App: React.FC = () => {
      if(!currentUser) return;
      const originalPost = posts.find(p => p.id === postId);
      if (!originalPost || originalPost.repostOf || (originalPost.author as User).id === currentUser.id) return;
-     const newRepostData = {
-        author: currentUser.id,
-        courseName: '', review: '', rating: 0, likes: 0, comments: [],
-        likedBy: [],
-        field: originalPost.field,
-        isCommunityPost: originalPost.isCommunityPost,
-        repostOf: originalPost.id, // Storing ID reference
-    };
-    
-    try {
+     
+     const tempId = `repost-${Date.now()}`;
+     const newPostTemp: Post = {
+         id: tempId,
+         author: currentUser,
+         courseName: '', review: '', rating: 0, likes: 0, comments: [], likedBy: [],
+         field: originalPost.field, isCommunityPost: originalPost.isCommunityPost,
+         repostOf: originalPost,
+         timestamp: new Date().toISOString()
+     };
+     setPosts([newPostTemp, ...posts]);
+
+     try {
+        const newRepostData = {
+            author: currentUser.id, courseName: '', review: '', rating: 0, likes: 0, comments: [], likedBy: [],
+            field: originalPost.field, isCommunityPost: originalPost.isCommunityPost, repostOf: originalPost.id,
+        };
         const createdPost = await postsAPI.create(newRepostData);
-        const newPost = { ...createdPost, author: currentUser, repostOf: originalPost, timestamp: createdPost.timestamp || new Date().toISOString() };
-        setPosts([newPost as Post, ...posts]);
+        // FIX: Cast createdPost to Post
+        const realPost = { 
+            ...(createdPost as Post), 
+            author: currentUser, 
+            repostOf: originalPost, 
+            timestamp: (createdPost as any).timestamp || new Date().toISOString() 
+        };
+        setPosts(prev => prev.map(p => p.id === tempId ? realPost as Post : p));
     } catch (error) {
+        setPosts(prev => prev.filter(p => p.id !== tempId));
         console.error("Error reposting:", error);
         alert("Failed to repost. Please try again.");
     }
@@ -640,15 +772,12 @@ const App: React.FC = () => {
   const handleSaveRoadmap = async (roadmapKey: string, roadmapData: Roadmap) => {
     if (!currentUser) return;
     const newKey = roadmapKey.toLowerCase().replace(/\s+/g, '-');
-    // Optimistic update
     setSavedRoadmaps(prev => ({ ...prev, [newKey]: roadmapData }));
     
-    // API call
     try {
         await roadmapsAPI.saveRoadmap(currentUser.id, newKey, roadmapData);
     } catch (error) {
         console.error("Error saving roadmap:", error);
-        // Remove from state on error
         setSavedRoadmaps(prev => {
             const updated = { ...prev };
             delete updated[newKey];
@@ -702,13 +831,14 @@ const App: React.FC = () => {
                 setCurrentPage={navigate}
                 onEditCommunity={() => setEditingCommunity(viewedCommunity)}
                 onDeleteCommunity={() => setCommunityToDelete(viewedCommunity)}
+                onRateCommunity={handleRateCommunity} 
             />;
         case 'profile':
             const profileUser = allUsers.find(u => u.id === viewedUserId) ?? currentUser;
             return <ProfilePage 
                         profileUser={profileUser} 
                         currentUser={currentUser} 
-                        allPosts={visiblePosts}
+                        allPosts={visiblePosts} 
                         allUsers={allUsers}
                         courses={courses}
                         onLogout={handleLogout}
@@ -735,12 +865,78 @@ const App: React.FC = () => {
                 allUsers={allUsers} 
                 allPosts={visiblePosts} 
                 allCourses={courses}
-                onDeleteUser={async (userId) => { await usersAPI.delete(userId); }}
-                onDeletePost={async (postId) => { await postsAPI.delete(postId); }}
-                onDeleteCommunity={async (courseId) => { await coursesAPI.delete(courseId); }}
-                onUpdateUser={async (userId, data) => { await usersAPI.update(userId, data); }}
-                onUpdatePost={async (postId, data) => { await postsAPI.update(postId, data); }}
-                onUpdateCommunity={async (courseId, data) => { await coursesAPI.update(courseId, data); }}
+                onDeleteUser={async (userId) => {
+                    if (!currentUser) return;
+                    try {
+                        setAllUsers(prev => prev.filter(u => u.id !== userId));
+                        await usersAPI.delete(userId, currentUser.id);
+                        alert('User deleted successfully');
+                    } catch (error: any) {
+                        console.error("Error deleting user:", error);
+                        alert(`Failed to delete user: ${error.message || 'Unknown error'}`);
+                        const updatedUsers = await usersAPI.getAll();
+                        setAllUsers(updatedUsers as User[]);
+                    }
+                }}
+                onDeletePost={async (postId) => {
+                    if (!currentUser) return;
+                    try {
+                        setPosts(prev => prev.filter(p => p.id !== postId));
+                        await postsAPI.delete(postId, currentUser.id);
+                        alert('Post deleted successfully');
+                    } catch (error: any) {
+                        console.error("Error deleting post:", error);
+                        alert(`Failed to delete post: ${error.message || 'Unknown error'}`);
+                        const updatedPosts = await postsAPI.getAll();
+                        setPosts(updatedPosts as Post[]);
+                    }
+                }}
+                onDeleteCommunity={async (courseId) => {
+                    if (!currentUser) return;
+                    try {
+                        setCourses(prev => prev.filter(c => c.id !== courseId));
+                        await coursesAPI.delete(courseId, currentUser.id);
+                        alert('Community deleted successfully');
+                    } catch (error: any) {
+                        console.error("Error deleting community:", error);
+                        alert(`Failed to delete community: ${error.message || 'Unknown error'}`);
+                        const updatedCourses = await coursesAPI.getAll();
+                        setCourses(updatedCourses as Course[]);
+                    }
+                }}
+                onUpdateUser={async (userId, data) => {
+                    try {
+                        const result = await usersAPI.update(userId, data);
+                        const updatedUser = { id: userId, ...(result as User) } as User;
+                        setAllUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
+                        alert('User updated successfully');
+                    } catch (error: any) {
+                        console.error("Error updating user:", error);
+                        alert(`Failed to update user: ${error.message || 'Unknown error'}`);
+                    }
+                }}
+                onUpdatePost={async (postId, data) => {
+                    try {
+                        const result = await postsAPI.update(postId, data);
+                        const updatedPost = { id: postId, ...(result as Post) } as Post;
+                        setPosts(prev => prev.map(p => p.id === postId ? updatedPost : p));
+                        alert('Post updated successfully');
+                    } catch (error: any) {
+                        console.error("Error updating post:", error);
+                        alert(`Failed to update post: ${error.message || 'Unknown error'}`);
+                    }
+                }}
+                onUpdateCommunity={async (courseId, data) => {
+                    try {
+                        const result = await coursesAPI.update(courseId, data);
+                        const updatedCourse = { id: courseId, ...(result as Course) } as Course;
+                        setCourses(prev => prev.map(c => c.id === courseId ? updatedCourse : c));
+                        alert('Community updated successfully');
+                    } catch (error: any) {
+                        console.error("Error updating community:", error);
+                        alert(`Failed to update community: ${error.message || 'Unknown error'}`);
+                    }
+                }}
             /> : <div>Access Denied</div>;
         default:
             return <HomePage posts={visiblePosts} currentUser={currentUser} allUsers={allUsers} onLikePost={handleLikePost} onLikeComment={handleLikeComment} onCreatePost={handleCreatePost} onCommentPost={handleCommentPost} onViewProfile={handleViewProfile} onRatePost={handleRatePost} onEditPost={handleOpenEditModal} onDeleteRequest={handleOpenDeleteConfirm} onReportRequest={handleOpenReportConfirm} onBlockUser={handleBlockUser} onRepost={handleRepost} searchQuery={searchQuery} />;
@@ -762,9 +958,15 @@ const App: React.FC = () => {
             currentPage={currentPage}
             setCurrentPage={navigate}
             currentUser={currentUser}
-            notifications={notifications}
-            onMarkNotificationAsRead={(id) => {}}
-            onClearAllNotifications={() => {}}
+            notifications={hydratedNotifications}
+            onMarkNotificationAsRead={async (id) => {
+                setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+                try { await notificationsAPI.markAsRead(id); } catch(e) {}
+            }}
+            onClearAllNotifications={async () => {
+                setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                try { await notificationsAPI.markAllAsRead(currentUser.id); } catch(e) {}
+            }}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
         >
@@ -773,6 +975,7 @@ const App: React.FC = () => {
     );
   };
     return (
+    <Suspense fallback={<PageLoader />}>
     <div className="bg-[var(--background)] min-h-screen">
       {renderContent()}
       {currentUser && chattingWith && activeChatId && (
@@ -894,6 +1097,7 @@ const App: React.FC = () => {
         )}
       </AnimatePresence>
     </div>
+    </Suspense>
   );
 };
 

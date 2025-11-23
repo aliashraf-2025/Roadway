@@ -1,11 +1,10 @@
-
 export interface User {
   id: string;
-  name: string; // Full Name
+  name: string;
   username: string;
   email: string;
   avatarUrl: string;
-  specialization: string; // Major
+  specialization: string;
   studyYear: number;
   followers: number;
   following: number;
@@ -19,7 +18,7 @@ export interface User {
 
 export interface Comment {
   id: string;
-  author: User | string; // Can be hydrated User object or just an ID string
+  author: User | string;
   text: string;
   timestamp: string;
   likes: number;
@@ -28,7 +27,7 @@ export interface Comment {
 
 export interface Post {
   id: string;
-  author: User | string; // Can be hydrated User object or just an ID string
+  author: User | string;
   courseName: string;
   review: string;
   rating: number;
@@ -95,18 +94,20 @@ export interface ChatMessage {
     status: 'sent' | 'delivered' | 'read';
 }
 
-
 export type Theme = 'light' | 'dark';
 
 export type Page = 'landing' | 'home' | 'discover' | 'roadmap' | 'profile' | 'about' | 'privacy' | 'terms' | 'support' | 'community' | 'admin';
 
-export type NotificationType = 'comment' | 'follow' | 'like';
+// ✅ التعديل هنا: ضفنا 'message'
+export type NotificationType = 'comment' | 'follow' | 'like' | 'repost' | 'message';
 
 export interface Notification {
   id: string;
   type: NotificationType;
   user: User;
   post?: Post;
+  // ✅ ضفنا ده عشان نعرض جزء من الرسالة في الإشعار
+  messagePreview?: string; 
   timestamp: string;
   read: boolean;
 }

@@ -156,7 +156,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                                     <p className="text-sm text-[var(--text-secondary)]">Following</p>
                                 </button>
                                 <div className="text-left p-2 rounded-md">
-                                    <p className="text-2xl font-bold text-[var(--text-primary)]">{profileUser.joinedCommunities.length}</p>
+                                    <p className="text-2xl font-bold text-[var(--text-primary)]">{joinedCommunities.length + ownedCommunities.length}</p>
                                     <p className="text-sm text-[var(--text-secondary)]">Communities</p>
                                 </div>
                             </div>

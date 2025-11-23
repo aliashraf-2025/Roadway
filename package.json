@@ -1,34 +1,30 @@
 {
-  "name": "a2z-app",
+  "name": "roadway-app",
   "version": "1.0.0",
-  "description": "A2Z: Your complete academic journey, from A to Z.",
   "main": "server.js",
   "scripts": {
     "dev": "vite",
-    "start": "node server.js",
     "build": "vite build",
-    "serve": "vite preview",
+    "preview": "vite preview",
     "server": "node server.js",
-    "server:dev": "nodemon server.js",
-    "prepare-firebase-env": "node prepare-firebase-env.js"
+    "create-admin": "node create-admin.js"
   },
   "dependencies": {
-    "@google/genai": "^1.27.0",
+    "@google/genai": "^0.1.1",
     "cors": "^2.8.5",
     "express": "^4.18.2",
-    "firebase": "^10.12.2",
+    "firebase": "^10.7.1",
     "firebase-admin": "^12.0.0",
-    "framer-motion": "^12.23.24",
-    "lucide-react": "^0.546.0",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "framer-motion": "^10.16.4",
+    "lucide-react": "^0.294.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
     "@vitejs/plugin-react": "^4.2.0",
-    "nodemon": "^3.0.2",
-    "typescript": "^5.3.3",
     "vite": "^5.0.0"
   }
 }

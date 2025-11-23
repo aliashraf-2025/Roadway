@@ -101,7 +101,7 @@ const SignUpForm = ({ onSignup, switchToSignin }) => {
     return (
         <div className="space-y-6">
              <div className="text-left">
-                <h1 className="text-3xl font-bold text-white">Join <span className="text-[#14F195]">A2Z</span></h1>
+                <h1 className="text-3xl font-bold text-white">Join <span className="text-[#14F195]">Roadway</span></h1>
                 <p className="mt-1 text-gray-400">Connect with students and build your academic roadmap</p>
             </div>
 
@@ -321,7 +321,7 @@ const testimonials = [
     { avatarInitial: "M", name: "Maria Santos", major: "Business Admin", review: "Found the best YouTube series for accounting. Finally making sense of financial statements!" },
     { avatarInitial: "S", name: "Samira Khan", major: "Neuroscience", review: "The community roadmap for pre-med was a lifesaver. It broke down exactly which courses to take and when." },
     { avatarInitial: "D", name: "David Lee", major: "Mechanical Engineering", review: "Being able to see reviews for specific lab sections was clutch. Avoided a notoriously difficult TA." },
-    { avatarInitial: "J", name: "Jessica Wallace", major: "Fine Arts", review: "A2Z helped me find online courses to supplement my studio work, especially for digital art software. It's not just for STEM!" },
+    { avatarInitial: "J", name: "Jessica Wallace", major: "Fine Arts", review: "Roadway helped me find online courses to supplement my studio work, especially for digital art software. It's not just for STEM!" },
 ];
 
 const StatCard = ({ value, label }) => (
@@ -484,7 +484,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onSignup, setCurrent
                         <button onClick={() => setCurrentPage('terms')} className="hover:text-[#14F195]">Terms</button>
                         <button onClick={() => setCurrentPage('support')} className="hover:text-[#14F195]">Support</button>
                     </div>
-                    <p className="text-sm text-gray-500 mt-4 md:mt-0">&copy; 2025 A2Z. All rights reserved</p>
+                    <p className="text-sm text-gray-500 mt-4 md:mt-0">&copy; 2025 Roadway. All rights reserved</p>
                 </div>
             </footer>
         </div>

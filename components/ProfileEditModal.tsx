@@ -20,9 +20,20 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ currentUser, onSave
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
+            // Check file size (limit to 2MB to avoid database issues with base64)
+            if (file.size > 2 * 1024 * 1024) {
+                alert('Image size must be less than 2MB. Please choose a smaller image.');
+                e.target.value = ''; // Reset input
+                return;
+            }
             const reader = new FileReader();
             reader.onloadend = () => {
-                setAvatarUrl(reader.result as string);
+                const base64String = reader.result as string;
+                setAvatarUrl(base64String);
+            };
+            reader.onerror = () => {
+                alert('Error reading image file. Please try again.');
+                e.target.value = ''; // Reset input
             };
             reader.readAsDataURL(file);
         }

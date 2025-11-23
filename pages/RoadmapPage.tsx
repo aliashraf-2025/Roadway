@@ -114,7 +114,7 @@ const QuizModal: React.FC<{
     React.useEffect(() => {
         const generateQuiz = async () => {
             try {
-                const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+                const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
                 const prompt = `Based on the following learning material for the topic "${step.title}", generate a 5-question multiple-choice quiz with 4 options per question. The questions should test the key concepts. Learning Material: ${step.description}. Resources mentioned: ${step.resources.map(r => r.name).join(', ')}.`;
                 
                 const response = await ai.models.generateContent({
@@ -456,7 +456,7 @@ const RoadmapPage: React.FC<RoadmapPageProps> = ({ roadmaps, onSaveRoadmap, allP
     const handleGenerateRoadmap = async (topic: string) => {
         setIsLoading(true);
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
             const prompt = `Create a detailed, multi-step learning roadmap for the topic: "${topic}". For each step, provide a "stage" (e.g., "Beginner", "Intermediate"), a "title", a detailed "description", and a list of 3-5 diverse "resources". Resources should be a mix of "Book", "YouTube", and "Course" types.`;
 
             const response = await ai.models.generateContent({

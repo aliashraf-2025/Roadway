@@ -104,9 +104,10 @@ export const usersAPI = {
     });
   },
 
-  delete: async (id: string) => {
+  delete: async (id: string, adminUserId: string) => {
     return apiRequest(`/api/users/${id}`, {
       method: 'DELETE',
+      body: { adminUserId },
     });
   },
 
@@ -133,6 +134,7 @@ export const usersAPI = {
 };
 
 // ============= POSTS API =============
+
 export const postsAPI = {
   getAll: async () => {
     return apiRequest('/api/posts', {
@@ -160,9 +162,10 @@ export const postsAPI = {
     });
   },
 
-  delete: async (id: string) => {
+  delete: async (id: string, userId: string) => {
     return apiRequest(`/api/posts/${id}`, {
       method: 'DELETE',
+      body: { userId },
     });
   },
 
@@ -203,6 +206,15 @@ export const coursesAPI = {
     });
   },
 
+  // ... داخل coursesAPI ...
+rate: async (courseId: string, rating: number) => {
+  return apiRequest(`/api/courses/${courseId}/rate`, {
+    method: 'POST',
+    body: { rating },
+  });
+},
+// ...
+
   getById: async (id: string) => {
     return apiRequest(`/api/courses/${id}`, {
       method: 'GET',
@@ -223,9 +235,10 @@ export const coursesAPI = {
     });
   },
 
-  delete: async (id: string) => {
+  delete: async (id: string, adminUserId: string) => {
     return apiRequest(`/api/courses/${id}`, {
       method: 'DELETE',
+      body: { adminUserId },
     });
   },
 };
@@ -254,10 +267,42 @@ export const roadmapsAPI = {
     });
   },
 
+  // ... داخل roadmapsAPI ...
+
+  // ✅ دالة لجلب Roadmap عن طريق الرابط
+  getSharedRoadmap: async (targetUserId: string, roadmapKey: string) => {
+    return apiRequest(`/api/roadmaps/shared/${targetUserId}/${roadmapKey}`, {
+      method: 'GET',
+    });
+  },
+
+// ...
+
   saveRoadmap: async (userId: string, roadmapKey: string, roadmapData: any) => {
     return apiRequest(`/api/users/${userId}/roadmaps/${roadmapKey}`, {
       method: 'POST',
       body: roadmapData,
+    });
+  },
+};
+
+// ============= NOTIFICATIONS API =============
+export const notificationsAPI = {
+  getAll: async (userId: string) => {
+    return apiRequest(`/api/notifications/${userId}`, {
+      method: 'GET',
+    });
+  },
+
+  markAsRead: async (notificationId: string) => {
+    return apiRequest(`/api/notifications/${notificationId}/read`, {
+      method: 'PUT',
+    });
+  },
+
+  markAllAsRead: async (userId: string) => {
+    return apiRequest(`/api/notifications/${userId}/read-all`, {
+      method: 'PUT',
     });
   },
 };
@@ -269,5 +314,6 @@ export default {
   courses: coursesAPI,
   chats: chatsAPI,
   roadmaps: roadmapsAPI,
+  notifications: notificationsAPI,
 };
 

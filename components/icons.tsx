@@ -1,8 +1,9 @@
-// This file is used to re-export icons from a library for consistency.
-// Assuming 'lucide-react' is available in the environment.
-// In a real project, you would add "lucide-react" to your dependencies.
 import React from 'react';
 import { Home, Compass, MessageSquare, User, Star, ThumbsUp, MessageCircle, ArrowRight, Book, Youtube, Laptop, Mail, Lock, Users, ArrowLeft, Send, X, Sun, Moon, Bell, Check, CheckCheck, Pencil, Search, Trash2, UploadCloud, MoreHorizontal, Flag, UserX, Paperclip, Link, Repeat, Bot, PlusCircle, ClipboardCheck, Pin, Shield, Share2, Copy } from 'lucide-react';
+
+// ✅ 1. استيراد الصورة هنا (عشان نضمن إنها موجودة)
+// تأكد إن الصورة اسمها logo.png وموجودة في فولدر src/assets
+import logoImage from '../assets/logo.png';
 
 export const HomeIcon = Home;
 export const DiscoverIcon = Compass;
@@ -46,15 +47,13 @@ export const AdminIcon = Shield;
 export const ShareIcon = Share2;
 export const CopyIcon = Copy;
 
-
+// ✅ 2. تعديل مكون اللوجو (تكبير الحجم)
 export const Logo: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <div className={`flex items-center text-2xl font-extrabold tracking-wider ${className}`}>
-    <span className="text-[var(--text-primary)]">A</span>
-    <span className="text-glow relative inline-block mx-px">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="inline-block relative top-[-1px]">
-        <path d="M4 12H20M20 12L14 6M20 12L14 18" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    </span>
-    <span className="text-[var(--text-primary)]">Z</span>
-  </div>
+  <img 
+    src={logoImage} 
+    alt="Roadway" 
+    // التعديل هنا: غيرنا h-10 لـ h-14 في الموبايل و h-20 في الكمبيوتر
+    // w-auto: عشان العرض يظبط تلقائي مع الطول
+    className={`h-13 md:h-10 w-auto object-contain ${className}`} 
+  />
 );

@@ -18,13 +18,13 @@ const SupportPage: React.FC<LegalPageProps> = ({ setCurrentPage }) => {
       <main className="container mx-auto px-4 py-12">
         <h1 className="text-4xl font-bold text-glow mb-8">Support Center</h1>
         <div className="max-w-4xl text-gray-300 space-y-6 leading-relaxed">
-            <p>Welcome to the A2Z Support Center. We're here to help you get the most out of our platform. If you have any questions, issues, or feedback, please don't hesitate to reach out.</p>
+            <p>Welcome to the Roadway Support Center. We're here to help you get the most out of our platform. If you have any questions, issues, or feedback, please don't hesitate to reach out.</p>
             
             <h2 className="text-2xl font-bold text-white pt-4">Frequently Asked Questions</h2>
             <div className="space-y-4">
                 <div>
                     <h3 className="font-semibold text-lg text-gray-100">How do I verify my student email?</h3>
-                    <p>After signing up, you will receive a verification link to your student email address. Click the link to complete your registration and gain full access to the A2Z community.</p>
+                    <p>After signing up, you will receive a verification link to your student email address. Click the link to complete your registration and gain full access to the Roadway community.</p>
                 </div>
                 <div>
                     <h3 className="font-semibold text-lg text-gray-100">Can I post anonymously?</h3>
@@ -39,7 +39,7 @@ const SupportPage: React.FC<LegalPageProps> = ({ setCurrentPage }) => {
             <h2 className="text-2xl font-bold text-white pt-8">Contact Us</h2>
             <p>If you can't find the answer you're looking for, please email us directly. Our support team will get back to you as soon as possible.</p>
             <p>
-                <strong>Email:</strong> <a href="mailto:support@a2z.com" className="text-[#14F195] hover:underline">support@a2z.com</a>
+                <strong>Email:</strong> <a href="mailto:support@roadway.app" className="text-[#14F195] hover:underline">support@roadway.app</a>
             </p>
         </div>
       </main>

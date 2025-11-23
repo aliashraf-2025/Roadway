@@ -4,6 +4,31 @@ import GlassCard from '../components/GlassCard';
 import PostCard from '../components/PostCard';
 import { UsersIcon, MessageSquareIcon, BookIcon, StarIcon, AttachmentIcon, LinkIcon, XIcon, ArrowLeftIcon, EditIcon, TrashIcon } from '../components/icons';
 
+// ✅ تعديل 1: إضافة onRateCommunity للخصائص (Props)
+interface CommunityPageProps {
+    community: Course;
+    currentUser: User;
+    allUsers: User[];
+    allPosts: Post[];
+    courses: Course[];
+    onJoinToggle: (field: string) => void;
+    onViewProfile: (userId: string) => void;
+    onLikePost: (postId: string) => void;
+    onLikeComment: (postId: string, commentId: string) => void;
+    onCommentPost: (postId: string, commentText: string) => void;
+    onCreatePost: (postData: Omit<Post, 'id' | 'author' | 'likes' | 'comments' | 'timestamp' | 'likedBy' | 'repostOf'>) => void;
+    onRatePost: (postId: string, rating: number) => void;
+    onEditPost: (post: Post) => void;
+    onDeleteRequest: (post: Post) => void;
+    onReportRequest: (post: Post) => void;
+    onBlockUser: (userId: string) => void;
+    onRepost: (postId: string) => void;
+    setCurrentPage: (page: Page) => void;
+    onEditCommunity: () => void;
+    onDeleteCommunity: () => void;
+    onRateCommunity: (communityId: string, rating: number) => void; // ✅ دي الجديدة
+}
+
 const CreateCommunityPostForm: React.FC<{
     currentUser: User;
     allUsers: User[];
@@ -192,31 +217,8 @@ const ResourceCard: React.FC<{ course: Course }> = ({ course }) => (
     </GlassCard>
 );
 
-interface CommunityPageProps {
-    community: Course;
-    currentUser: User;
-    allUsers: User[];
-    allPosts: Post[];
-    courses: Course[];
-    onJoinToggle: (field: string) => void;
-    onViewProfile: (userId: string) => void;
-    onLikePost: (postId: string) => void;
-    onLikeComment: (postId: string, commentId: string) => void;
-    onCommentPost: (postId: string, commentText: string) => void;
-    onCreatePost: (postData: Omit<Post, 'id' | 'author' | 'likes' | 'comments' | 'timestamp' | 'likedBy' | 'repostOf'>) => void;
-    onRatePost: (postId: string, rating: number) => void;
-    onEditPost: (post: Post) => void;
-    onDeleteRequest: (post: Post) => void;
-    onReportRequest: (post: Post) => void;
-    onBlockUser: (userId: string) => void;
-    onRepost: (postId: string) => void;
-    setCurrentPage: (page: Page) => void;
-    onEditCommunity: () => void;
-    onDeleteCommunity: () => void;
-}
-
 const CommunityPage: React.FC<CommunityPageProps> = ({
-    community, currentUser, allUsers, allPosts, courses, onJoinToggle, onViewProfile, onCreatePost, onRepost, setCurrentPage, onEditCommunity, onDeleteCommunity, ...postCardProps
+    community, currentUser, allUsers, allPosts, courses, onJoinToggle, onViewProfile, onCreatePost, onRepost, setCurrentPage, onEditCommunity, onDeleteCommunity, onRateCommunity, ...postCardProps
 }) => {
     const [activeTab, setActiveTab] = useState('discussion');
     const isJoined = currentUser.joinedCommunities.includes(community.field);
@@ -354,9 +356,33 @@ const CommunityPage: React.FC<CommunityPageProps> = ({
                 <div className="relative mb-8">
                     <img src={community.imageUrl} alt={`${community.title} banner`} className="w-full h-48 md:h-64 object-cover rounded-2xl" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent rounded-2xl"></div>
-                    <div className="absolute bottom-4 left-4 text-white">
-                        <h1 className="text-4xl md:text-5xl font-extrabold">{community.title}</h1>
-                        <p className="max-w-2xl">{community.description}</p>
+                    
+                    {/* ✅ تعديل 2: منطقة العنوان والتقييم الجديدة */}
+                    <div className="absolute bottom-4 left-4 right-4 text-white">
+                        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                            <div>
+                                <h1 className="text-4xl md:text-5xl font-extrabold mb-2">{community.title}</h1>
+                                <p className="max-w-2xl text-lg opacity-90">{community.description}</p>
+                            </div>
+                            {/* نجوم التقييم */}
+                            <div className="flex items-center gap-1 bg-black/40 backdrop-blur-md p-2 rounded-full border border-white/10 w-fit">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                    <button
+                                        key={star}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onRateCommunity(community.id, star);
+                                        }}
+                                        className="transition-transform hover:scale-110 focus:outline-none"
+                                    >
+                                        <StarIcon
+                                            className={`w-6 h-6 ${star <= community.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-400'}`}
+                                        />
+                                    </button>
+                                ))}
+                                <span className="ml-2 text-sm font-bold text-white">{community.rating}/5</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

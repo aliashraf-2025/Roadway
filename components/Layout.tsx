@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Page, Notification, User } from '../types';
-import { HomeIcon, DiscoverIcon, ChatIcon, ProfileIcon, Logo, BellIcon, LikeIcon, CommentIcon, UsersIcon, SearchIcon, AdminIcon } from './icons';
+import { HomeIcon, DiscoverIcon, ChatIcon, ProfileIcon, Logo, BellIcon, LikeIcon, CommentIcon, UsersIcon, SearchIcon, AdminIcon, RepostIcon } from './icons';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -9,7 +9,6 @@ interface LayoutProps {
   setCurrentPage: (page: Page) => void;
   currentUser: User;
   notifications: Notification[];
-  // FIX: Changed id type from number to string
   onMarkNotificationAsRead: (id: string) => void;
   onClearAllNotifications: () => void;
   searchQuery: string;
@@ -23,15 +22,17 @@ const navItems: { page: Page; icon: React.FC<any>; adminOnly?: boolean }[] = [
   { page: 'admin', icon: AdminIcon, adminOnly: true },
 ];
 
+// ✅ التعديل هنا: ضفنا أيقونة الشات لنوع 'message' واستخدمنا RepostIcon
 const notificationIcons = {
     like: LikeIcon,
     comment: CommentIcon,
     follow: UsersIcon,
+    repost: RepostIcon, 
+    message: ChatIcon, // ✅ نوع جديد للرسائل
 };
 
 const NotificationBell: React.FC<{
     notifications: Notification[];
-    // FIX: Changed id type from number to string
     onMarkAsRead: (id: string) => void;
     onClearAll: () => void;
     direction?: 'up' | 'down';
@@ -50,14 +51,19 @@ const NotificationBell: React.FC<{
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [ref]);
 
+    // ✅ التعديل هنا: ضفنا حالة الرسالة
     const getNotificationMessage = (n: Notification) => {
         switch (n.type) {
             case 'like':
-                return <><span className="font-bold">{n.user.name}</span> liked your post: "{n.post?.courseName}"</>;
+                return <><span className="font-bold">{n.user.name}</span> liked your post: "{n.post?.courseName || n.post?.review || 'Post'}"</>;
             case 'comment':
-                return <><span className="font-bold">{n.user.name}</span> commented on your post: "{n.post?.courseName}"</>;
+                return <><span className="font-bold">{n.user.name}</span> commented on your post: "{n.post?.courseName || n.post?.review || 'Post'}"</>;
             case 'follow':
                 return <><span className="font-bold">{n.user.name}</span> started following you.</>;
+            case 'repost':
+                return <><span className="font-bold">{n.user.name}</span> reposted your post.</>;
+            case 'message': // ✅ حالة الرسالة الجديدة
+                return <><span className="font-bold">{n.user.name}</span> sent you a message: "{n.messagePreview || 'New message'}"</>;
             default:
                 return 'New notification';
         }
@@ -65,11 +71,17 @@ const NotificationBell: React.FC<{
 
     return (
         <div ref={ref} className="relative">
-            <button onClick={() => setIsOpen(!isOpen)} className="relative p-3 rounded-xl hover:bg-[var(--hover-bg)] transition-colors">
+            <button 
+                onClick={() => {
+                    setIsOpen(!isOpen);
+                }} 
+                className="relative p-3 rounded-xl hover:bg-[var(--hover-bg)] transition-colors"
+                aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+            >
                 <BellIcon className="w-7 h-7 text-[var(--text-secondary)]" />
                 {unreadCount > 0 && (
-                    <div className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-[var(--sidebar-bg)]">
-                        {unreadCount}
+                    <div className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-[var(--sidebar-bg)] min-w-[20px]">
+                        {unreadCount > 99 ? '99+' : unreadCount}
                     </div>
                 )}
             </button>
@@ -92,25 +104,67 @@ const NotificationBell: React.FC<{
                         <div className="max-h-80 overflow-y-auto">
                             {notifications.length > 0 ? (
                                 notifications.map(n => {
-                                    const Icon = notificationIcons[n.type];
+                                    const Icon = notificationIcons[n.type] || BellIcon;
                                     return (
-                                        <div key={n.id} onClick={() => onMarkAsRead(n.id)} className={`flex items-start gap-3 p-3 border-b border-[var(--card-border)] hover:bg-[var(--hover-bg)] cursor-pointer ${!n.read ? '' : 'opacity-60'}`}>
-                                            <div className="relative">
-                                                <img src={n.user.avatarUrl} alt={n.user.name} className="w-10 h-10 rounded-full" />
-                                                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-[var(--primary-accent)] text-black rounded-full flex items-center justify-center border-2 border-[var(--card-bg)]">
-                                                    <Icon className="w-3 h-3"/>
-                                                </div>
+                                        <div 
+                                            key={n.id} 
+                                            onClick={() => {
+                                                if (!n.read) {
+                                                    onMarkAsRead(n.id);
+                                                }
+                                            }} 
+                                            className={`flex items-start gap-3 p-3 border-b border-[var(--card-border)] hover:bg-[var(--hover-bg)] cursor-pointer transition-colors ${!n.read ? 'bg-[var(--hover-bg)]/50' : 'opacity-60'}`}
+                                        >
+                                            <div className="relative flex-shrink-0">
+                                                <img 
+                                                    src={n.user?.avatarUrl || `https://avatar.vercel.sh/${n.user?.name || 'user'}.svg`} 
+                                                    alt={n.user?.name || 'User'} 
+                                                    className="w-10 h-10 rounded-full object-cover"
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).src = `https://avatar.vercel.sh/${n.user?.name || 'user'}.svg`;
+                                                    }}
+                                                />
+                                                {Icon && (
+                                                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-[var(--primary-accent)] text-black rounded-full flex items-center justify-center border-2 border-[var(--card-bg)]">
+                                                        <Icon className="w-3 h-3"/>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div className="flex-1">
-                                                <p className="text-sm text-[var(--text-secondary)]">{getNotificationMessage(n)}</p>
-                                                <p className="text-xs text-[var(--text-secondary)]/70 mt-1">{n.timestamp}</p>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm text-[var(--text-secondary)] break-words">
+                                                    {getNotificationMessage(n)}
+                                                </p>
+                                                <p className="text-xs text-[var(--text-secondary)]/70 mt-1">
+                                                    {n.timestamp ? (() => {
+                                                        try {
+                                                            const date = new Date(n.timestamp);
+                                                            if (isNaN(date.getTime())) return 'Recently';
+                                                            const now = new Date();
+                                                            const diffMs = now.getTime() - date.getTime();
+                                                            const diffMins = Math.floor(diffMs / 60000);
+                                                            const diffHours = Math.floor(diffMs / 3600000);
+                                                            const diffDays = Math.floor(diffMs / 86400000);
+                                                            
+                                                            if (diffMins < 1) return 'Just now';
+                                                            if (diffMins < 60) return `${diffMins}m ago`;
+                                                            if (diffHours < 24) return `${diffHours}h ago`;
+                                                            if (diffDays < 7) return `${diffDays}d ago`;
+                                                            return date.toLocaleDateString();
+                                                        } catch {
+                                                            return 'Recently';
+                                                        }
+                                                    })() : 'Recently'}
+                                                </p>
                                             </div>
                                             {!n.read && <div className="w-2.5 h-2.5 bg-blue-500 rounded-full self-center flex-shrink-0"></div>}
                                         </div>
-                                    )
+                                    );
                                 })
                             ) : (
-                                <p className="text-center text-[var(--text-secondary)] text-sm p-6">No new notifications.</p>
+                                <div className="text-center text-[var(--text-secondary)] text-sm p-6">
+                                    <p>No new notifications.</p>
+                                    <p className="text-xs mt-2 opacity-70">You'll see notifications here when someone likes, comments, follows, or messages you.</p>
+                                </div>
                             )}
                         </div>
                     </motion.div>
