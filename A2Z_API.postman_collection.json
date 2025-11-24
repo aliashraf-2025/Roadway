@@ -1,0 +1,1055 @@
+{
+	"info": {
+		"_postman_id": "a2z-api-collection",
+		"name": "A2Z Firebase API",
+		"description": "Complete API collection for A2Z Firebase backend endpoints. Use this to test all Firebase operations including Auth, Users, Posts, and Courses.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Check if the API server is running"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Sign Up",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"password123\",\n    \"displayName\": \"John Doe\",\n    \"studyYear\": \"2024\"\n}\n\n\nResponse example:\n{\n    \"success\": true,\n    \"user\": {\n        \"uid\": \"M0sqGf2uZkdnGjENmywRITEyKnj1\",\n        \"email\": \"user@example.com\",\n        \"displayName\": \"John Doe\"\n    },\n    \"customToken\": \"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/signup",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"signup"
+							]
+						},
+						"description": "Create a new user account"
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"password123\"\n}\n\nExample with real credentials:\n{\n    \"email\": \"S220128@commerce.ninu.edu.eg\",\n    \"password\": \"Fuf62227\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Login user and get custom token"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User by UID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/user/:uid",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"user",
+								":uid"
+							],
+							"variable": [
+								{
+									"key": "uid",
+									"value": "user-uid-here",
+									"description": "Firebase User UID"
+								}
+							]
+						},
+						"description": "Get user authentication information by UID"
+					},
+					"response": []
+				}
+			],
+			"description": "Authentication endpoints for user signup and login"
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Get All Users",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users"
+							]
+						},
+						"description": "Retrieve all users from Firestore. Returns array of user objects with id, name, username, email, specialization, studyYear, followers, following, university, isActive, followingIds, blockedUserIds, joinedCommunities, isAdmin, and avatarUrl."
+					},
+					"response": []
+				},
+				{
+					"name": "Get User by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/users/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "user-id-here",
+									"description": "User document ID"
+								}
+							]
+						},
+						"description": "Get a specific user by document ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Create User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id\": \"user-id-here\",\n    \"email\": \"user@example.com\",\n    \"displayName\": \"John Doe\",\n    \"studyYear\": \"2024\",\n    \"followers\": [],\n    \"following\": [],\n    \"followingIds\": [],\n    \"blockedUserIds\": [],\n    \"joinedCommunities\": []\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users"
+							]
+						},
+						"description": "Create a new user document in Firestore"
+					},
+					"response": []
+				},
+				{
+					"name": "Update User",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"displayName\": \"Updated Name\",\n    \"studyYear\": \"2025\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "user-id-here",
+									"description": "User document ID"
+								}
+							]
+						},
+						"description": "Update an existing user document"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete User",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/users/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "user-id-here",
+									"description": "User document ID"
+								}
+							]
+						},
+						"description": "Delete a user document from Firestore"
+					},
+					"response": []
+				},
+				{
+					"name": "Follow/Unfollow User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": \"current-user-id-here\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users/:id/follow",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users",
+								":id",
+								"follow"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "target-user-id-here",
+									"description": "Target user ID to follow/unfollow"
+								}
+							]
+						},
+						"description": "Follow or unfollow a user"
+					},
+					"response": []
+				},
+				{
+					"name": "Block User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": \"current-user-id-here\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users/:id/block",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users",
+								":id",
+								"block"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "user-to-block-id-here",
+									"description": "User ID to block"
+								}
+							]
+						},
+						"description": "Block a user"
+					},
+					"response": []
+				},
+				{
+					"name": "Join/Leave Community",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"field\": \"computer-science\",\n    \"action\": \"join\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users/:id/communities",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users",
+								":id",
+								"communities"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "user-id-here",
+									"description": "User document ID"
+								}
+							]
+						},
+						"description": "Join or leave a community (action: 'join' or 'leave')"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Roadmaps",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/users/:userId/roadmaps",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users",
+								":userId",
+								"roadmaps"
+							],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "user-id-here",
+									"description": "User document ID"
+								}
+							]
+						},
+						"description": "Get all roadmaps for a user"
+					},
+					"response": []
+				},
+				{
+					"name": "Save Roadmap",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Learning Path Title\",\n    \"description\": \"Description of the roadmap\",\n    \"steps\": [\n        {\n            \"id\": \"step-1\",\n            \"stage\": \"Beginner\",\n            \"title\": \"Step 1\",\n            \"description\": \"Step description\",\n            \"resources\": []\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users/:userId/roadmaps/:roadmapKey",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users",
+								":userId",
+								"roadmaps",
+								":roadmapKey"
+							],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "user-id-here",
+									"description": "User document ID"
+								},
+								{
+									"key": "roadmapKey",
+									"value": "roadmap-key-here",
+									"description": "Roadmap key (e.g., 'learning-path-title')"
+								}
+							]
+						},
+						"description": "Save a roadmap for a user"
+					},
+					"response": []
+				}
+			],
+			"description": "Firestore user management endpoints"
+		},
+		{
+			"name": "Posts",
+			"item": [
+				{
+					"name": "Get All Posts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/posts",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"posts"
+							]
+						},
+						"description": "Get all posts ordered by timestamp (newest first)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Post by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/posts/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"posts",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "post-id-here",
+									"description": "Post document ID"
+								}
+							]
+						},
+						"description": "Get a specific post by document ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Post",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"authorId\": \"user-id-here\",\n    \"content\": \"This is my post content\",\n    \"courseName\": \"Computer Science\",\n    \"likes\": 0,\n    \"comments\": [],\n    \"reposts\": 0\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/posts",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"posts"
+							]
+						},
+						"description": "Create a new post in Firestore"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Post",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"content\": \"Updated post content\",\n    \"courseName\": \"Updated Course\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/posts/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"posts",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "post-id-here",
+									"description": "Post document ID"
+								}
+							]
+						},
+						"description": "Update an existing post"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Post",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/posts/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"posts",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "post-id-here",
+									"description": "Post document ID"
+								}
+							]
+						},
+						"description": "Delete a post from Firestore"
+					},
+					"response": []
+				},
+				{
+					"name": "Like/Unlike Post",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": \"user-id-here\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/posts/:id/like",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"posts",
+								":id",
+								"like"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "post-id-here",
+									"description": "Post document ID"
+								}
+							]
+						},
+						"description": "Like or unlike a post"
+					},
+					"response": []
+				},
+				{
+					"name": "Add Comment to Post",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"authorId\": \"user-id-here\",\n    \"text\": \"This is a comment\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/posts/:id/comments",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"posts",
+								":id",
+								"comments"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "post-id-here",
+									"description": "Post document ID"
+								}
+							]
+						},
+						"description": "Add a comment to a post"
+					},
+					"response": []
+				},
+				{
+					"name": "Like/Unlike Comment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": \"user-id-here\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/posts/:postId/comments/:commentId/like",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"posts",
+								":postId",
+								"comments",
+								":commentId",
+								"like"
+							],
+							"variable": [
+								{
+									"key": "postId",
+									"value": "post-id-here",
+									"description": "Post document ID"
+								},
+								{
+									"key": "commentId",
+									"value": "comment-id-here",
+									"description": "Comment ID"
+								}
+							]
+						},
+						"description": "Like or unlike a comment on a post"
+					},
+					"response": []
+				},
+				{
+					"name": "Rate Post",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"rating\": 5\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/posts/:id/rate",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"posts",
+								":id",
+								"rate"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "post-id-here",
+									"description": "Post document ID"
+								}
+							]
+						},
+						"description": "Rate a post (1-5)"
+					},
+					"response": []
+				}
+			],
+			"description": "Firestore post management endpoints"
+		},
+		{
+			"name": "Courses",
+			"item": [
+				{
+					"name": "Get All Courses",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/courses",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"courses"
+							]
+						},
+						"description": "Get all courses from Firestore"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Course by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/courses/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"courses",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "course-id-here",
+									"description": "Course document ID"
+								}
+							]
+						},
+						"description": "Get a specific course by document ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Course",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Introduction to Computer Science\",\n    \"field\": \"Computer Science\",\n    \"description\": \"Learn the basics of computer science\",\n    \"rating\": 0,\n    \"platform\": \"Online\",\n    \"imageUrl\": \"https://example.com/image.jpg\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/courses",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"courses"
+							]
+						},
+						"description": "Create a new course in Firestore"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Course",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Updated Course Title\",\n    \"description\": \"Updated description\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/courses/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"courses",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "course-id-here",
+									"description": "Course document ID"
+								}
+							]
+						},
+						"description": "Update an existing course"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Course",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/courses/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"courses",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "course-id-here",
+									"description": "Course document ID"
+								}
+							]
+						},
+						"description": "Delete a course from Firestore"
+					},
+					"response": []
+				}
+			],
+			"description": "Firestore course management endpoints"
+		},
+		{
+			"name": "Chats & Messages",
+			"item": [
+				{
+					"name": "Get Chat Messages",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/chats/:chatId/messages",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"chats",
+								":chatId",
+								"messages"
+							],
+							"variable": [
+								{
+									"key": "chatId",
+									"value": "chat-id-here",
+									"description": "Chat ID (format: userId1_userId2 sorted alphabetically)"
+								}
+							]
+						},
+						"description": "Get all messages for a chat"
+					},
+					"response": []
+				},
+				{
+					"name": "Send Message",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"senderId\": \"user-id-here\",\n    \"text\": \"Hello, this is a message\",\n    \"participants\": [\"user-id-1\", \"user-id-2\"]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/chats/:chatId/messages",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"chats",
+								":chatId",
+								"messages"
+							],
+							"variable": [
+								{
+									"key": "chatId",
+									"value": "chat-id-here",
+									"description": "Chat ID (format: userId1_userId2 sorted alphabetically)"
+								}
+							]
+						},
+						"description": "Send a message in a chat"
+					},
+					"response": []
+				}
+			],
+			"description": "Chat and messaging endpoints"
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "https://roadway-l7up.onrender.com",
+			"type": "string"
+		}
+	]
+}
+
